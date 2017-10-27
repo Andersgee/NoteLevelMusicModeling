@@ -34,7 +34,7 @@ function train(data,L,d,bsz,gridsize)
 
   # uncomment to continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  #Wm, Wv, gradientstep, smoothloss = CHECKPOINT.load_optimizevars(filename2)
+  #Wm, Wv, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
 
   println("starting training.")
   while smoothcost > 0.1
@@ -62,26 +62,22 @@ function train(data,L,d,bsz,gridsize)
 
       gradientstep+=1
 
-      # adjust encoder
+      # adjust encoders, grid and decoders
       OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
       OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
-
-      # adjust grid
       OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
       OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
-
-      # adjust decoder
       OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
       OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
 
-      if gradientstep%500 == 0
+      if gradientstep%5 == 0
         CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
-        CHECKPOINT.save_optimizevars(filename2, Wm, Wv, gradientstep, smoothloss)
+        CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
       end
     end
   end
   CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
-  CHECKPOINT.save_optimizevars(filename2, Wm, Wv, gradientstep, smoothloss)
+  CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
 end
 
 function main()

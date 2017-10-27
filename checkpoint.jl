@@ -19,8 +19,23 @@ function load_model(path)
   return Wenc, benc, W, b, Wdec, bdec
 end
 
-function save_optimizevars(path, Wm, Wv, gradientstep, smoothloss)
-  JLD.save(path, "Wm", Wm, "Wv", Wv, "gradientstep", gradientstep, "smoothloss", smoothloss)
+function save_optimizevars(path, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
+  JLD.save(path,
+  "mWenc",mWenc,
+  "vWenc",vWenc,
+  "mbenc",mbenc,
+  "vbenc",vbenc,
+  "Wm",Wm,
+  "Wv",Wv,
+  "bm",bm,
+  "bv",bv,
+  "mWdec",mWdec,
+  "vWdec",vWdec,
+  "mbdec",mbdec,
+  "vbdec",vbdec,
+  "gradientstep",gradientstep,
+  "smoothcost",smoothcost)
+
   println("saved ",path)
 end
 
