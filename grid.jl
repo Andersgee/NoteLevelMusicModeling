@@ -238,6 +238,8 @@ function continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
 end
 
 function reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
+  #instad of mi.*=0 and hi.*=0 , this way I can reset a sequence of choice if multiple exist
+  #for 2dimensions, there is only one sequence since the other is temporal
   c1=1
   for i=1:gridsize[projdim]
     fill!(mi[c1][seqdim], 0.0)

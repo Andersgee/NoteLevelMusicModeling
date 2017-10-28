@@ -3,7 +3,13 @@ module CHECKPOINT
 import JLD
 
 function save_model(path, Wenc, benc, W, b, Wdec, bdec)
-  JLD.save(path, "Wenc", Wenc, "benc", benc, "W", W, "b", b, "Wdec", Wdec, "bdec", bdec)
+  JLD.save(path,
+  "Wenc", Wenc,
+  "benc",benc,
+  "W", W,
+  "b", b,
+  "Wdec", Wdec,
+  "bdec", bdec)
   println("saved ",path)
 end
 
@@ -15,6 +21,7 @@ function load_model(path)
   b = d["b"]
   Wdec = d["Wdec"]
   bdec = d["bdec"]
+  
   println("loaded ",path)
   return Wenc, benc, W, b, Wdec, bdec
 end

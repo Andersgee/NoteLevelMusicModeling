@@ -17,7 +17,7 @@ function train(data,L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=300 # seqlen=6*gridsize[seqdim] means optimize 6 times within a batch
+  seqlen=500 # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
@@ -74,7 +74,7 @@ function train(data,L,d,bsz,gridsize)
 end
 
 function main()
-  data = DATALOADER.load_dataset(300)
+  data = DATALOADER.load_dataset(500) # specify minimum song length
   L = 256 #input/output units
   d = 256 #hidden units
   batchsize=64

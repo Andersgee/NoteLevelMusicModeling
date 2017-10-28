@@ -13,7 +13,7 @@ function get_batch!(batch, seqlen, bsz, data)
     end
 
     s=rand(1:size(X,2)-seqlen) #random sequence within selected song
-    batch[b]=X[:,s:s+seqlen] #selected song sequence has length seqlen+1
+    batch[b]=X[:,s:s+seqlen] # (batch[b] length seqlen+1)
   end
 end
 
