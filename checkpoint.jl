@@ -41,12 +41,23 @@ end
 
 function load_optimizevars(path)
   d = JLD.load(path)
+  mWenc = d["mWenc"]
+  vWenc = d["vWenc"]
+  mbenc = d["mbenc"]
+  vbenc = d["vbenc"]
   Wm = d["Wm"]
   Wv = d["Wv"]
+  bm = d["bm"]
+  bv = d["bv"]
+  mWdec = d["mWdec"]
+  vWdec = d["vWdec"]
+  mbdec = d["mbdec"]
+  vbdec = d["vbdec"]
   gradientstep = d["gradientstep"]
-  smoothloss = d["smoothloss"]
+  smoothcost = d["smoothcost"]
+
   println("loaded ",path)
-  return Wm, Wv, gradientstep, smoothloss
+  return mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost
 end
 
 end

@@ -1,9 +1,10 @@
-module Compose
-import JLD
+module COMPOSE
+
 import NPZ
 include("grid.jl")
+include("checkpoint.jl")
 
-function drawsample(y)
+function sample(y)
   p = y./sum(y)
   table = cumsum(p)
   r=rand()
@@ -16,79 +17,94 @@ function drawsample(y)
 end
 
 function randTriad()
-  # In programming speak: Returns a random three note chord among 12*6=72 alternatives.
-  # In music speak: Picks a Major or minor triad in either rootposition, first or second inversion.
-  # Csharp (49) as lowest possible note makes distribution even around the clef (min 3 below, max 2-4 above)
+  # Picks a Major or minor triad in either rootposition, first or second inversion.
   lowest=48
   pattern=[0 3 7; 0 4 7; 0 4 9; 0 3 8; 0 5 8; 0 5 9]
-  notes=collect(lowest:127))
+  notes=collect(lowest:127)
   return notes[rand(1:12) + pattern[rand(1:size(pattern,1)),:]]
 end
 
-function main()
-  gridsize=[1,6]
+function compose(L, d, bsz, gridsize)
+  # pre-allocate
+  N, C, fn, bn = GRID.linearindexing(gridsize)
+  W, b, g, mi, mo, hi, ho, Hi, WHib = GRID.gridvars(N,C,d,bsz)
 
-  N, C, fn, bn = linind(gridsize)
-  d=256
-  bsz=1
-  W, b, g, mi, mo, hi, ho, Hi, WHib = gridvars(N,C,d,bsz)
-  L = 256
+  # load trained model
+  fname="trained/trained_bsz64_seqlen301.jld"
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname)
+
+  # setup a sequence
   seqdim=1
-  seqlen=gridsize[seqdim]
   projdim=2
-
-  #fname="trained/overfitted_waldstein_1_format0/trainedfullset_bsz1seqlen501bproplen50.jld"
-  #fname="trained/overfitted_beethoven_hammerklavier_4_format0/trainedfullset_bsz1seqlen501bproplen50.jld"
-  fname="trained/overfitted_appass_1_format0/trainedfullset_bsz1seqlen501bproplen50.jld"
-  #fname="trained/not_sure/trainedfullset_bsz1seqlen301bproplen50.jld"
-
-  trained = JLD.load(fname)
-  Wenc=trained["Wenc"]
-  benc=trained["benc"]
-  W=trained["W"]
-  b=trained["b"]
-  Wdec=trained["Wdec"]
-  bdec=trained["bdec"]
-
-  x = [zeros(L,1) for i=1:seqlen]
-  z = [zeros(L,1) for i=1:seqlen]
+  x = [zeros(L,bsz) for i=1:gridsize[seqdim]]
+  z = [zeros(L,bsz) for i=1:gridsize[seqdim]]
   
-  K = 1000 # generate K notes ("beats" really, can be multiple notes per beat)
+  # initialize a song
+  K = 1000 # Length of song
+  generated=zeros(256,K) #initialize song
+  generated[randTriad(),1]=1 # prime the song with a random chord
   
-  generated=zeros(256,K)
-  #prime the net with a random chord to get it started:
-  chord=randTriad()
-  for n=1:length(chord)
-    generated[chord[n],1]=1
-  end
-  
-  T =0.2 # Threshold 0<T<1 (1 means never use any notes, 0 means use all notes always)
-  
-  for ITERATION=1:75
-    println(ITERATION)
-    #mi .*= 0
-    #hi .*= 0 #THESE NEED TO BE COMMENTED!
-    for s=1:K-1
-      x[seqlen] .= (generated[:,s].>0).*1
+  for I=1:100
+    for s=1:K
+      x[1] .= (generated[:,s].>0).*1
 
-      continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
-      encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn,d)
-      grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
-      decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
-      y = σ(z[seqlen])
+      GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
 
-      generated[:,s+1].*=0
-      for I=1:ITERATION
-        i1=drawsample(y)
-        generated[i1,s+1] = (y[i1].>T).*y[i1]
+      # fprop
+      GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn,d)
+      GRID.grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+      GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
+      output = GRID.σ(z[1])
+
+      if s<K
+        generated[:,s+1].*=0
+        for i=1:I
+          note=sample(output)
+          generated[note,s+1] = output[note]
+        end
+      else
+        generated[:,1].*=0
+        for i=1:I
+          note=sample(output)
+          generated[note,1] = output[note]
+        end
       end
 
     end
+    println("After iteration ",I,", song has ",sum(generated[1:128,:].>0)," notes")
+    #println("After iteration ",I,", song has ",sum(generated[129:256,:].>0)," noteEndings")
   end
-  filename="data/generated_npy/generated1.npy"
+  #println("average note certainty: ",mean(generated[generated.>0]))
+  noteOn=generated[1:128,:]
+  mean_noteOnCertainty = mean(noteOn[noteOn.>0])
+  println("average noteOn certainty: ",mean_noteOnCertainty)
+
+  noteOff=generated[129:256,:]
+  mean_noteOffCertainty = mean(noteOff[noteOff.>0])
+  println("average noteOff certainty: ",mean_noteOffCertainty)
+
+  besthalf_noteOn = noteOn.>mean_noteOnCertainty
+  #print(size(besthalf_noteOn))
+
+  println("song has ",sum(generated[1:128,:].>0), " notes")
+  println("deleting least certain 50% of noteOn events")
+  generated = vcat(besthalf_noteOn, noteOff)
+  println("song has ",sum(generated[1:128,:].>0), " notes")
+
+  filename="data/generated_npy/generated7.npy"
   NPZ.npzwrite(filename, generated)
   println("saved ", filename)
+
+  
+end
+
+function main()
+  L = 256
+  d = 256
+  batchsize=1
+  gridsize = [1,6]
+  compose(L, d, batchsize, gridsize)
 end
 
 end
-Compose.main()
+COMPOSE.main()

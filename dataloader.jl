@@ -3,39 +3,27 @@ module DATALOADER
 import NPZ
 
 function get_batch!(batch, seqlen, bsz, data)
-    #constructs sequences starting from random points in the songs
-    #a song can be selected multiple times. but the startID is random.
-    #The songs are sampled evenly... this means that a particular sequence within a SHORT song
-    #will be sampled more often than a particular sequence in a LONG song.
-    #Im not sure if this is desired behaviour. Perhaps I should use some weighted sampling
-    #to make longer songs be sampled more often, linearly correlated to song length.
-    #But there is a problem there aswell, imagine one song is extremely long, then the trained
-    #model would be biased towards the style of that particular song simply because it was long..
+  for b=1:bsz
+    song=rand(1:length(data)) #random song
+    #song=2 # overfit a single song
 
-    #There is also another detail: seqlen must be less than the shortest song. Some songs are only
-    #like 300 beats long ufortunately. Perhaps exclude them from dataset.
-    #Short seqlen means I have to run this function often, but more importantly, it resets the
-    #hidden/memory state more often, which definitely is undesirable.
-    for b=1:bsz
-        song=rand(1:length(data)) #select a song (does not have to be unique every time)
-        #song=2 #TEST
-
-        #construct/extract (entire) manyhot from data[songnumber]
-        X=zeros(256,data[song][end,1]);
-        for n=1:size(data[song],1); X[data[song][n,2],data[song][n,1]]=1 end
-
-        s=rand(1:size(X,2)-seqlen) #random id within song to start sequence from
-        batch[b]=X[:,s:s+seqlen] #store the extracted song sequence (it has length seqlen+1)
+    X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
+    for n=1:size(data[song],1)
+        X[data[song][n,2],data[song][n,1]] = 1
     end
+
+    s=rand(1:size(X,2)-seqlen) #random sequence within selected song
+    batch[b]=X[:,s:s+seqlen] #selected song sequence has length seqlen+1
+  end
 end
 
 function get_partialbatch!(x,t,batch,gridsize,seqdim,batchstep,bsz)
-    for b=1:bsz
-        for i=1:gridsize[seqdim]
-            x[i][:,b] .= batch[b][:,batchstep+i-1]
-            t[i][:,b] .= batch[b][:,batchstep+i]
-        end
+  for b=1:bsz
+    for i=1:gridsize[seqdim]
+      x[i][:,b] .= batch[b][:,batchstep+i-1]
+      t[i][:,b] .= batch[b][:,batchstep+i]
     end
+  end
 end
 
 function load_dataset(lowerlimit)
