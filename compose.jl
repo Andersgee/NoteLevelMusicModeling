@@ -30,7 +30,8 @@ function compose(L, d, bsz, gridsize)
   W, b, g, mi, mo, hi, ho, Hi, WHib = GRID.gridvars(N,C,d,bsz)
 
   # load trained model
-  fname="trained/trained_bsz64_seqlen301.jld"
+  #fname="trained/trained_bsz64_seqlen500_20500steps_3p43loss.jld"
+  fname="trained/trained_bsz64_seqlen500_23500steps_3p18loss.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname)
 
   # setup a sequence
@@ -44,6 +45,7 @@ function compose(L, d, bsz, gridsize)
   generated=zeros(256,K) #initialize song
   generated[randTriad(),1]=1 # prime the song with a random chord
   
+  T=0 # Threshold
   for I=1:100
     for s=1:K
       x[1] .= (generated[:,s].>0).*1
@@ -57,22 +59,36 @@ function compose(L, d, bsz, gridsize)
       output = GRID.σ(z[1])
 
       if s<K
-        generated[:,s+1].*=0
+        fill!(generated[:,s+1], 0.0)
         for i=1:I
           note=sample(output)
-          generated[note,s+1] = output[note]
+          generated[note,s+1] = (output[note]>T)*output[note]
         end
       else
-        generated[:,1].*=0
+        fill!(generated[:,1], 0.0)
         for i=1:I
           note=sample(output)
-          generated[note,1] = output[note]
+          generated[note,1] = (output[note]>T)*output[note]
         end
       end
 
     end
     println("After iteration ",I,", song has ",sum(generated[1:128,:].>0)," notes")
-    #println("After iteration ",I,", song has ",sum(generated[129:256,:].>0)," noteEndings")
+
+
+    noteOn=generated[1:128,:]
+    #mean_noteOnCertainty = mean(noteOn[noteOn.>0])
+    #println("average noteOn certainty: ",mean_noteOnCertainty)
+    noteOff=generated[129:256,:]
+    #mean_noteOffCertainty = mean(noteOff[noteOff.>0])
+    #println("average noteOff certainty: ",mean_noteOffCertainty)
+    #T=mean_noteOnCertainty*0.95
+
+    median_noteOnCertainty = median(noteOn[noteOn.>0])
+    T=median_noteOnCertainty*0.8
+    
+    println("Threshold is now ", T)
+    println()
   end
   #println("average note certainty: ",mean(generated[generated.>0]))
   noteOn=generated[1:128,:]
@@ -82,16 +98,16 @@ function compose(L, d, bsz, gridsize)
   noteOff=generated[129:256,:]
   mean_noteOffCertainty = mean(noteOff[noteOff.>0])
   println("average noteOff certainty: ",mean_noteOffCertainty)
-
-  besthalf_noteOn = noteOn.>mean_noteOnCertainty
-  #print(size(besthalf_noteOn))
-
-  println("song has ",sum(generated[1:128,:].>0), " notes")
-  println("deleting least certain 50% of noteOn events")
-  generated = vcat(besthalf_noteOn, noteOff)
-  println("song has ",sum(generated[1:128,:].>0), " notes")
-
-  filename="data/generated_npy/generated7.npy"
+#
+#  besthalf_noteOn = noteOn.>mean_noteOnCertainty
+#  #print(size(besthalf_noteOn))
+#
+#  println("song has ",sum(generated[1:128,:].>0), " notes")
+#  println("deleting least certain 50% of noteOn events")
+#  generated = vcat(besthalf_noteOn, noteOff)
+#  println("song has ",sum(generated[1:128,:].>0), " notes")
+#
+  filename="data/generated_npy/generated4.npy"
   NPZ.npzwrite(filename, generated)
   println("saved ", filename)
 
