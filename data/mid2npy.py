@@ -5,13 +5,13 @@ import argparse
 def track2numpy(track):
     r = []
     acctick = 0
-    for note in track:
-        acctick = acctick + note.tick
-        isoff = type(note) is midi.events.NoteOffEvent or (type(note) is midi.events.NoteOnEvent and note.data[1] == 0)
+    for event in track:
+        acctick = acctick + event.tick
+        isoff = type(event) is midi.events.NoteOffEvent or (type(event) is midi.events.NoteOnEvent and event.data[1] == 0)
         if isoff:
-            r.append([acctick, 128 + note.data[0]])
-        if not isoff and type(note) is midi.events.NoteOnEvent:
-            r.append([acctick, note.data[0]])
+            r.append([acctick, 128 + event.data[0]])
+        if not isoff and type(event) is midi.events.NoteOnEvent:
+            r.append([acctick, event.data[0]])
     return np.vstack(r)
 
 def massage(filename):

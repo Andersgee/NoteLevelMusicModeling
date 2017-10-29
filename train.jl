@@ -27,8 +27,8 @@ function train(data,L,d,bsz,gridsize)
   filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
 
   println("starting training.")
   while smoothcost > 0.1
@@ -77,7 +77,8 @@ function main()
   data = DATALOADER.load_dataset(500) # specify minimum song length
   L = 256 #input/output units
   d = 256 #hidden units
-  batchsize=64
+  #batchsize=64
+  batchsize=8
   gridsize = [50,6]
   train(data, L, d, batchsize, gridsize)
 end

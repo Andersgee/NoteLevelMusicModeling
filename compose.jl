@@ -31,7 +31,8 @@ function compose(L, d, bsz, gridsize)
 
   # load trained model
   #fname="trained/trained_bsz64_seqlen500_20500steps_3p43loss.jld"
-  fname="trained/trained_bsz64_seqlen500_23500steps_3p18loss.jld"
+  #fname="trained/trained_bsz64_seqlen500_23500steps_3p18loss.jld"
+  fname="trained/trained_bsz8_seqlen500.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname)
 
   # setup a sequence
@@ -85,7 +86,7 @@ function compose(L, d, bsz, gridsize)
     #T=mean_noteOnCertainty*0.95
 
     median_noteOnCertainty = median(noteOn[noteOn.>0])
-    T=median_noteOnCertainty*0.8
+    T=median_noteOnCertainty*0.5
     
     println("Threshold is now ", T)
     println()
@@ -107,7 +108,7 @@ function compose(L, d, bsz, gridsize)
 #  generated = vcat(besthalf_noteOn, noteOff)
 #  println("song has ",sum(generated[1:128,:].>0), " notes")
 #
-  filename="data/generated_npy/generated4.npy"
+  filename="data/generated_npy/generated9.npy"
   NPZ.npzwrite(filename, generated)
   println("saved ", filename)
 

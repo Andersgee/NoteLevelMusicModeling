@@ -4,8 +4,8 @@ import NPZ
 
 function get_batch!(batch, seqlen, bsz, data)
   for b=1:bsz
-    song=rand(1:length(data)) #random song
-    #song=2 # overfit a single song
+    #song=rand(1:length(data)) #random song
+    song=103 # overfit a single song
 
     X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
     for n=1:size(data[song],1)
