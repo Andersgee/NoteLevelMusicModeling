@@ -25,7 +25,8 @@ function compose(L,d,bsz,gridsize)
   seqlen=1000
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
-  filename1 = string("trained/trained_bsz64_seqlen500.jld")
+  #filename1 = string("trained/trained_bsz64_seqlen500.jld")
+  filename1 = string("trained/bach1/trained_bach1.jld")
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
 
   println("Composing ",bsz," songs in parallell")
@@ -67,7 +68,7 @@ function compose(L,d,bsz,gridsize)
       batch[i][:,1] .= batch[i][:,end]
     end
 
-    println("\nSurvivors after iteration ",iteration,":")
+    println("\nAfter iteration ",iteration,":")
 
     #some info
     for i=1:bsz
