@@ -74,11 +74,11 @@ function train(data,L,d,bsz,gridsize)
 end
 
 function main()
-  data = DATALOADER.load_dataset(500) # specify minimum song length
+  data = DATALOADER.load_dataset(600) # specify minimum song length
   L = 256 #input/output units
   d = 256 #hidden units
-  #batchsize=64
-  batchsize=8
+  batchsize=64
+  #batchsize=8
   gridsize = [50,6]
   train(data, L, d, batchsize, gridsize)
 end
