@@ -17,7 +17,7 @@ function train(data,L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=500 # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
+  seqlen=4000 # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
@@ -27,8 +27,8 @@ function train(data,L,d,bsz,gridsize)
   filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
 
   println("starting training.")
   while smoothcost > 0.1
@@ -63,28 +63,27 @@ function train(data,L,d,bsz,gridsize)
       OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
       OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
 
-      if (gradientstep%500 == 0)
-        CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
-        CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
-      end
     end
+    CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
+    CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
   end
   CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
   CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
 end
 
 function main()
-  #data = DATALOADER.load_dataset(500) # specify minimum song length
+  #data = DATALOADER.load_dataset(4000) # specify minimum song length (24*120 would mean 120 seconds )
   
-  data = DATALOADER.BachJohannSebastian()
-  #lengths = [data[n][end,1] for n=1:length(data)]
-  #println(lengths) #[1091, 2277, 1537]
+  #data = DATALOADER.BachJohannSebastian()
+  data = DATALOADER.BeethovenLudwigvan()
+  lengths = [data[n][end,1] for n=1:length(data)]
+  println(lengths)
 
   L = 256 #input/output units
   d = 256 #hidden units
   #batchsize=64
   batchsize=4
-  gridsize = [50,6]
+  gridsize = [24*3,6] #backprop 3 seconds
   train(data, L, d, batchsize, gridsize)
 end
 

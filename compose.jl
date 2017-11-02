@@ -32,7 +32,8 @@ function compose(L, d, bsz, gridsize)
   # load trained model
   #fname="trained/trained_bsz64_seqlen500_20500steps_3p43loss.jld"
   #fname="trained/trained_bsz64_seqlen500_23500steps_3p18loss.jld"
-  fname="trained/trained_bsz8_seqlen500.jld"
+  #fname="trained/trained_bsz8_seqlen500.jld"
+  fname="trained/trained_bsz4_seqlen4000.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname)
 
   # setup a sequence
