@@ -63,7 +63,7 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
       ∇hi[c][n] .= Σ∇Hi[1+d*(n-1):d*n,:] # this line responsible for 100% of allocations
       ∇ho[bn[c,n]][n] .= ∇hi[c][n]
 
-      ∇mi[c][n] .= ∇mo[c][n].*g[c][n][2]
+      @. ∇mi[c][n] = ∇ho[c][n]*(1.0-ho[c][n]^2)*g[c][n][3]*g[c][n][2] + ∇mo[c][n]*g[c][n][2]
       ∇mo[bn[c,n]][n] .= ∇mi[c][n]
     end
   end
