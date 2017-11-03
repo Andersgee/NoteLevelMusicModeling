@@ -33,7 +33,8 @@ function compose(L, d, bsz, gridsize)
   #fname="trained/trained_bsz64_seqlen500_20500steps_3p43loss.jld"
   #fname="trained/trained_bsz64_seqlen500_23500steps_3p18loss.jld"
   #fname="trained/trained_bsz8_seqlen500.jld"
-  fname="trained/trained_bsz4_seqlen4000.jld"
+  #fname="trained/trained_bsz4_seqlen4000.jld"
+  fname="trained/trained_bsz32_seqlen1440.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname)
 
   # setup a sequence
@@ -48,7 +49,7 @@ function compose(L, d, bsz, gridsize)
   generated[randTriad(),1]=1 # prime the song with a random chord
   
   T=0 # Threshold
-  for I=1:100
+  for I=1:10
     for s=1:K
       x[1] .= (generated[:,s].>0).*1
 
@@ -119,7 +120,7 @@ end
 function main()
   L = 256
   d = 256
-  batchsize=1
+  batchsize=8
   gridsize = [1,6]
   compose(L, d, batchsize, gridsize)
 end
