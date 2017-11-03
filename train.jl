@@ -4,7 +4,7 @@ include("grid.jl")
 include("optimizer.jl")
 include("dataloader.jl")
 include("checkpoint.jl")
-import JLD
+
 
 function train(data,L,d,bsz,gridsize)
   # pre-allocate
@@ -22,7 +22,8 @@ function train(data,L,d,bsz,gridsize)
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
-  smoothcost=log(L)
+  smoothcostV=log(L)
+  smoothcost = zeros(0) #array
 
   filename1 = string("trained/trained_bsz",bsz,"_seqlen",seqlen,".jld")
   filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
@@ -30,11 +31,10 @@ function train(data,L,d,bsz,gridsize)
   # uncomment to replace appropriate vars and continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
   #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
-
-  history_smoothcost = zeros(0)
+  #smoothcostV=smoothcost[end]
 
   println("starting training.")
-  while smoothcost > 0.1
+  while smoothcostV > 0.1
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
     GRID.reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
 
@@ -48,8 +48,8 @@ function train(data,L,d,bsz,gridsize)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
 
       # display info
-      smoothcost = GRID.cost(smoothcost,t,z,bsz)
-      println("gradientstep: ", gradientstep, " smoothcost: ",round(smoothcost,3))
+      smoothcostV = GRID.cost(smoothcostV,t,z,bsz)
+      println("gradientstep: ", gradientstep, " smoothcost: ",round(smoothcostV,3))
 
       # bprop
       GRID.∇cost!(∇z, z, t)
@@ -67,11 +67,10 @@ function train(data,L,d,bsz,gridsize)
       OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
     end
 
+    append!(smoothcost, smoothcostV)
     CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
     CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
 
-    append!(history_smoothcost, smoothcost)
-    JLD.save("history_smoothcost.jld", "history_smoothcost", history_smoothcost)
   end
 end
 
