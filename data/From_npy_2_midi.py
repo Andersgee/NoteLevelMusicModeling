@@ -1,6 +1,6 @@
 from midiutil.MidiFile import MIDIFile
 import numpy as np
-
+import argparse
 
 def convert(filename):
 	# Note to self:
@@ -14,13 +14,17 @@ def convert(filename):
 	#     24 simply means click every quarternote and has nothing to do with the other "24" integers in this function.
 	# Also2; a 16th note has 1/4 the length of a 4th note obviously, which is why I divide by 4 here and there
 	#     because the functions want 4th notes as arguments.
+	#
+	# midiutil.MidiFile writes format1 files, which has resolution ("Divisions") 960 instead of 480 like format0 files. so divide tempo by 2.
 
-	generated = np.load(filename+".npy")
+	generated = np.load("generated_npy/"+filename+".npy")
 	mf = MIDIFile(numTracks=1, removeDuplicates=True, deinterleave=True, adjust_origin=True)
 	mf.addTrackName(0, 0, filename)
 	#mf.addTimeSignature(0, 0, 24, 4, 24) # 24 16th notes per bar (16=2^4)	
 	mf.addTimeSignature(0, 0, 6, 2, 24) # 6 4th notes per bar (4=2^2)
-	mf.addTempo(0, 0, 24/4*60) # 24 16th notes per second
+	#mf.addTempo(0, 0, 24/4*60) # 24 16th notes per second
+	#mf.addTempo(0, 0, 24/4*60/2) #slower tempo 
+	mf.addTempo(0, 0, 24/4*60/4) #slower tempo 
 
 	defaultduration = 4 # in 16th notes (there are 24 per bar, which is 1 second)
 	maxduration = 2*24 # in 16th notes (2*24 means 2 seconds)
@@ -37,7 +41,7 @@ def convert(filename):
 				volume = max(minvolume, generated[y,x])
 				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*127)
 
-	with open(filename+".mid", 'wb') as fn:
+	with open("generated_mid/"+filename+".mid", 'wb') as fn:
 		mf.writeFile(fn)
 
 if __name__ == '__main__':

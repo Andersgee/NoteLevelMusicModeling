@@ -6,7 +6,7 @@ def convert(filename):
 	track = midi.read_midifile("mid/"+filename+".mid")[0]
 
 	# default values
-	TicksPerQuarterNote = 480 # "Resolution"
+	TicksPerQuarterNote = 480 # "Resolution" (480 seems to be standard in format0 files)
 	MicroSecondsPerQuarterNote = 500000 # "Tempo" #120 quarternotes per minute is 1/(120/60/1000000)
 
 	AbsoluteMicroSeconds = 0

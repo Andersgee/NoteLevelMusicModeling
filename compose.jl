@@ -27,7 +27,7 @@ function compose(L,d,bsz,gridsize)
 
   #filename1 = string("trained/trained_bsz64_seqlen500.jld")
   #filename1 = string("trained/trained_bsz4_seqlen4000.jld")
-  filename1 = "trained_bsz32_seqlen1440.jld"
+  filename1 = "trained/trained_bsz32_seqlen1440.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
 
   println("Composing ",bsz," songs in parallell")
@@ -36,8 +36,8 @@ function compose(L,d,bsz,gridsize)
     batch[i][randTriad(),1]=0.5
   end
 
-  T = 0.12
-  for iteration=1:100
+  T = 0.1
+  for iteration=1:10
 
     for batchstep=1:seqlen
       for i=1:bsz
@@ -65,9 +65,9 @@ function compose(L,d,bsz,gridsize)
     end
 
     #put last output as first again
-    for i=1:bsz
-      batch[i][:,1] .= batch[i][:,end]
-    end
+    #for i=1:bsz
+    #  batch[i][:,1] .= batch[i][:,end]
+    #end
 
     println("\nAfter iteration ",iteration,":")
 
@@ -95,7 +95,7 @@ function main()
   L = 256 #input/output units
   d = 256 #hidden units
   #batchsize=16
-  batchsize=8
+  batchsize=64
   gridsize = [1,6]
   compose(L, d, batchsize, gridsize)
 end
