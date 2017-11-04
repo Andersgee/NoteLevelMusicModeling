@@ -5,5 +5,6 @@
 
 ls generated_npy | grep '\.npy' | while read line
 do
-	python generated_npy2mid.py ${line:0:-4} #dont pass ending ".npy" as argument.
+	#python generated_npy2mid.py ${line:0:-4} #dont pass ending ".npy" as argument.
+	python From_npy_2_midi.py ${line:0:-4}
 done

@@ -27,7 +27,8 @@ function compose(L,d,bsz,gridsize)
 
   #filename1 = string("trained/trained_bsz64_seqlen500.jld")
   #filename1 = string("trained/trained_bsz4_seqlen4000.jld")
-  filename1 = "trained/trained_bsz32_seqlen1440.jld"
+  #filename1 = "trained/trained_bsz32_seqlen1440.jld"
+  filename1="trained/trained_bsz8_seqlen1440.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
 
   println("Composing ",bsz," songs in parallell")
@@ -36,8 +37,8 @@ function compose(L,d,bsz,gridsize)
     batch[i][randTriad(),1]=0.5
   end
 
-  T = 0.1
-  for iteration=1:10
+  T = 0.2
+  for iteration=1:200
 
     for batchstep=1:seqlen
       for i=1:bsz
@@ -49,15 +50,17 @@ function compose(L,d,bsz,gridsize)
       GRID.grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
       output = GRID.σ(z[1])
-      output=(output.>T).*output
+      #output=(output.>T).*output
 
-      K=min(iteration,10)
+      #K=min(iteration,10)
+      K=iteration
       for i=1:bsz
         batch[i][:,batchstep+1] .*= 0.0
         #notes=Distributions.wsample(1:L, output[:,i], i) #sample "i" notes mean 2 for song 2.. and 16 for song 16 etc
         #notes=Distributions.wsample(1:L, output[:,i], iteration)
         notes=Distributions.wsample(1:L, output[:,i], K)
-        batch[i][notes,batchstep+1] .= output[notes,i]
+        #batch[i][notes,batchstep+1] .= output[notes,i]
+        batch[i][notes,batchstep+1] .= (output[notes,i].>T).*output[notes,i]
       end
 
       #println(batchstep)
@@ -65,9 +68,9 @@ function compose(L,d,bsz,gridsize)
     end
 
     #put last output as first again
-    #for i=1:bsz
-    #  batch[i][:,1] .= batch[i][:,end]
-    #end
+    for i=1:bsz
+      batch[i][:,1] .= batch[i][:,end]
+    end
 
     println("\nAfter iteration ",iteration,":")
 
@@ -95,7 +98,7 @@ function main()
   L = 256 #input/output units
   d = 256 #hidden units
   #batchsize=16
-  batchsize=64
+  batchsize=16
   gridsize = [1,6]
   compose(L, d, batchsize, gridsize)
 end

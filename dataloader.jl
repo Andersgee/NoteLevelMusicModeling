@@ -1,11 +1,16 @@
 module DATALOADER
 
 import NPZ
+import Distributions
 
 function get_batch!(batch, seqlen, bsz, data)
+  #lengths = [data[n][end,1] for n=1:length(data)]
   for b=1:bsz
-    song=rand(1:length(data)) #random song
-    #song=3 # overfit a single song (appass3?)
+    #song = Distributions.wsample(1:length(data), lengths, 1) # weighted pick. (long songs more often).
+
+
+    #song=rand(1:length(data)) # pick a random song
+    song=3 # overfit a single song (appass3?)
 
     X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
     for n=1:size(data[song],1)

@@ -29,12 +29,12 @@ function train(data,L,d,bsz,gridsize)
   filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
-  #smoothcostV=smoothcost[end]
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  smoothcostV=smoothcost[end]
 
   println("starting training.")
-  while smoothcostV > 0.1
+  while smoothcostV > 0.01
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
     GRID.reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
 
@@ -75,16 +75,16 @@ function train(data,L,d,bsz,gridsize)
 end
 
 function main()
-  data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
+  #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
   
   #data = DATALOADER.BachJohannSebastian()
-  #data = DATALOADER.BeethovenLudwigvan()
-  #lengths = [data[n][end,1] for n=1:length(data)]
-  #println(lengths)
+  data = DATALOADER.BeethovenLudwigvan()
+  lengths = [data[n][end,1] for n=1:length(data)]
+  println(lengths)
 
   L = 256 #input/output units
   d = 256 #hidden units
-  batchsize=32
+  batchsize=8
   gridsize = [24*2,6] #backprop 2 seconds
   train(data, L, d, batchsize, gridsize)
 end
