@@ -22,13 +22,15 @@ function compose(L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=1000
+  #seqlen=1000
+  seqlen=24*30 #24*60 would mean create 60 second songs
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   #filename1 = string("trained/trained_bsz64_seqlen500.jld")
   #filename1 = string("trained/trained_bsz4_seqlen4000.jld")
   #filename1 = "trained/trained_bsz32_seqlen1440.jld"
-  filename1="trained/trained_bsz8_seqlen1440.jld"
+  #filename1="trained/trained_bsz8_seqlen1440.jld"
+  filename1="trained/trained_bsz64_seqlen1440.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
 
   println("Composing ",bsz," songs in parallell")
@@ -37,8 +39,8 @@ function compose(L,d,bsz,gridsize)
     batch[i][randTriad(),1]=0.5
   end
 
-  T = 0.2
-  for iteration=1:200
+  T = 3 * 0.011410788617904519 # smoothcost[end]/256
+  for iteration=1:100
 
     for batchstep=1:seqlen
       for i=1:bsz
@@ -96,7 +98,7 @@ end
 
 function main()
   L = 256 #input/output units
-  d = 256 #hidden units
+  d = 256*2 #hidden units
   #batchsize=16
   batchsize=16
   gridsize = [1,6]
