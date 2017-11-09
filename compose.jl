@@ -58,9 +58,11 @@ function compose(L,d,bsz,gridsize)
   #T = 0.06 #2.233
   #T = 0.07 #1.72
   #T = 0.06 #1.72
-  T = 0.05 #1.72
+  #T = 0.05 #1.72
+  #T = 0.055 #1.72
+  T = 0.08
 
-  for iteration=1:100
+  for iteration=1:10
 
     for batchstep=1:seqlen
       for i=1:length(batch)
@@ -75,7 +77,8 @@ function compose(L,d,bsz,gridsize)
       #output=(output.>T).*output
 
       #K=min(iteration,10)
-      K=iteration+2
+      #K=iteration+2
+      K=10
       for i=1:length(batch)
         batch[i][:,batchstep+1] .*= 0.0
         #notes=Distributions.wsample(1:L, output[:,i], i) #sample "i" notes mean 2 for song 2.. and 16 for song 16 etc
@@ -98,8 +101,8 @@ function compose(L,d,bsz,gridsize)
     #deadsongs = find(events.==0) #indexes of completely dead songs
 
     uniquenotes=[length(find(sum(batch[i][1:128,:],2))) for i=1:length(batch)]
-    deadsongs = find(uniquenotes.<=1)
-    nondead = find(uniquenotes.>1)
+    deadsongs = find(uniquenotes.<=2)
+    nondead = find(uniquenotes.>2)
 
     #display some info
     println("\nAfter iteration ",iteration,":")
@@ -168,7 +171,8 @@ function main()
   L = 256 #input/output units
   d = 256*2 #hidden units
   #batchsize=16
-  batchsize=128
+  #batchsize=128
+  batchsize=32
   gridsize = [1,6]
   compose(L, d, batchsize, gridsize)
 end
