@@ -22,7 +22,8 @@ function train(data,L,d,bsz,gridsize)
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
-  smoothcostV=log(L)
+  #smoothcostV=log(L) # if softmax
+  smoothcostV=log(2)*L # if logistic (probably)
   smoothcost = zeros(0) #array
 
   filename1 = string("trained/trained_bsz",bsz,"_seqlen",seqlen,".jld")
@@ -33,6 +34,7 @@ function train(data,L,d,bsz,gridsize)
   mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
   smoothcostV=smoothcost[end]
 
+  println(smoothcostV)
   println("starting training.")
   while smoothcostV > 0.01
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
@@ -48,11 +50,13 @@ function train(data,L,d,bsz,gridsize)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
 
       # display info
-      smoothcostV = GRID.cost(smoothcostV,t,z,bsz)
+      #smoothcostV = GRID.softmax_xent(smoothcostV,t,z,bsz)
+      smoothcostV = GRID.logistic_xent(smoothcostV,t,z,bsz)
       println("gradientstep: ", gradientstep, " smoothcost: ",round(smoothcostV,3))
 
       # bprop
-      GRID.∇cost!(∇z, z, t)
+      #GRID.∇softmax_xent!(∇z, z, t)
+      GRID.∇logistic_xent!(∇z, z, t)
       GRID.∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d)
       GRID.∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo)
       GRID.∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn)
@@ -75,16 +79,17 @@ function train(data,L,d,bsz,gridsize)
 end
 
 function main()
-  #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
+  data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
   
   #data = DATALOADER.BachJohannSebastian()
-  data = DATALOADER.BeethovenLudwigvan()
-  lengths = [data[n][end,1] for n=1:length(data)]
-  println(lengths)
+  #data = DATALOADER.BeethovenLudwigvan()
+  #lengths = [data[n][end,1] for n=1:length(data)]
+  #println(lengths)
 
   L = 256 #input/output units
-  d = 256 #hidden units
-  batchsize=8
+  #d = 256 #hidden units
+  d = 256*2 #hidden units
+  batchsize=64
   gridsize = [24*2,6] #backprop 2 seconds
   train(data, L, d, batchsize, gridsize)
 end

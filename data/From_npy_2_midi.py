@@ -18,26 +18,33 @@ def convert(filename):
 	# midiutil.MidiFile writes format1 files, which has resolution ("Divisions") 960 instead of 480 like format0 files. so divide tempo by 2.
 	# Actually, ignore the line above.
 
+	C=4 #scaledown factor
+
 	generated = np.load("generated_npy/"+filename+".npy")
 	mf = MIDIFile(numTracks=1, removeDuplicates=True, deinterleave=True, adjust_origin=True)
 	mf.addTrackName(0, 0, filename)
 	#mf.addTimeSignature(0, 0, 24, 4, 24) # 24 16th notes per bar (16=2^4)	
 	mf.addTimeSignature(0, 0, 6, 2, 24) # 6 4th notes per bar (4=2^2)
 
-	mf.addTempo(0, 0, 24/4*60) # 24 16th notes per second (this is the tempo its supposed to be)
+	#mf.addTempo(0, 0, 24/4*60) # 24 16th notes per second (this is the tempo its supposed to be)
 	#mf.addTempo(0, 0, 24/4*60/2) # generally sound better at half speed...
 	#mf.addTempo(0, 0, 24/4*60/4) # or even a quarter spead.
 
+	mf.addTempo(0, 0, 24/4*60/C)
+
 	defaultduration = 4 # in 16th notes (there are 24 per bar, which is 1 second)
-	maxduration = 2*24 # in 16th notes (2*24 means 2 seconds)
+	#maxduration = 2*24 # in 16th notes (2*24 means 2 seconds)
+	maxduration = 2*24/C
 	minvolume = 0.15 # [0...1]
+	T=0.0
+	#T=0.2
 
 	for x in range(generated.shape[1]-maxduration):
 		for y in range(128):
-			if generated[y,x]>0:
+			if generated[y,x]>T:
 				duration = defaultduration
 				for n in range(1,maxduration):
-					if generated[y+128,x+n]>0:
+					if generated[y+128,x+n]>T:
 						duration=n
 						break
 				volume = max(minvolume, generated[y,x])

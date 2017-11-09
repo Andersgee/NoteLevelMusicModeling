@@ -249,35 +249,36 @@ function reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
   end
 end
 
-function prob(z)
-    # softmax (overflowsafe, and for multiple columns)
-    p=zeros(size(z))
-    y=zeros(size(z))
-    for n=1:size(z,2)
-        m = findmax(z[:,n])[1]
-        y[:,n] = exp.(z[:,n] - m)
-        p[:,n] = y[:,n] ./ sum(y[:,n])
-    end
-    return p
+function softmax(z)
+  # exp(z)/sum(exp(z))
+  y = exp.(z[end] .- maximum(z[end],1))
+  p = y ./ sum(y,1)
+  return p
 end
 
-function logprob(z)
-    # log(softmax(z)) (underflowsafe, and for multiple columns)
-    lp=zeros(size(z))
-    for n=1:size(z,2)
-      #x = z[:,n] - findmax(z[:,n])[1]
-      x = z[:,n] - maximum(z[:,n])
-      y = exp.(x)
-      lp[:,n] = x - log(sum(y))
-    end
-    return lp
+function softmax_xent(smoothcost,t,z,bsz)
+  # for multiple, exclusive, classification, softmax activation
+  # integrate softmax(z)-t and get: -sum(t*log(z))
+  x = z[end] .- maximum(z[end],1)
+  logsoftmax = x .- log.(sum(exp.(x),1))
+  E = -sum(t[end].*logsoftmax)
+  return 0.999*smoothcost + 0.001*E
 end
 
-function cost(smoothcost,t,z,bsz)
-  return 0.999*smoothcost + 0.001*-sum(t[end].*log.(σ(z[end])))/bsz
+function ∇softmax_xent!(∇z, z, t)
+  for i=1:length(z)
+    ∇z[i] .= softmax(z[i]) .- t[i]
+  end
 end
 
-function ∇cost!(∇z, z, t)
+function logistic_xent(smoothcost,t,z,bsz)
+  # for multiple, independent, classifications, sigmoid activation
+  #integrate σ(z)-t and get: log(1+exp(z))-z*t
+  E = sum(log.(1 .+ exp.(z[end])) .- z[end].*t[end])/bsz
+  return 0.999*smoothcost + 0.001*E
+end
+
+function ∇logistic_xent!(∇z, z, t)
   for i=1:length(z)
     ∇z[i] .= σ(z[i]) .- t[i]
   end
