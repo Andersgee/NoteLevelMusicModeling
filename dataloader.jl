@@ -7,11 +7,8 @@ function get_batch!(batch, seqlen, bsz, data)
   lengths = [data[n][end,1] for n=1:length(data)]
   lengths = lengths.-seqlen #actually, subtract seqlen for correct weighted sampling
   for b=1:bsz
-    #song = Distributions.wsample(1:length(data), lengths, 1) # weighted pick. (long songs more often).
-    song = Distributions.wsample(1:length(data), lengths)
-
-    #song=rand(1:length(data)) # pick a random song
-    #song=3 # overfit a single song (3 means appass3 if beethoven)
+    #song = Distributions.wsample(1:length(data), lengths)
+    song=3 # overfit a single song (3 means appass3 if beethoven)
 
     X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
     for n=1:size(data[song],1)
@@ -23,9 +20,9 @@ function get_batch!(batch, seqlen, bsz, data)
   end
 end
 
-function get_partialbatch!(x,t,batch,gridsize,seqdim,batchstep,bsz)
+function get_partialbatch!(x,t,batch,unrollsteps,batchstep,bsz)
   for b=1:bsz
-    for i=1:gridsize[seqdim]
+    for i=1:unrollsteps
       x[i][:,b] .= batch[b][:,batchstep+i-1]
       t[i][:,b] .= batch[b][:,batchstep+i]
     end

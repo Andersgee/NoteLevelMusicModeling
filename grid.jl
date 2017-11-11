@@ -34,7 +34,7 @@ function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, mi_future,hi_future)
       (fn[c,n] != C+1) && (mi[fn[c,n]][n] .= mo[c][n])
       (fn[c,n] != C+1) && (hi[fn[c,n]][n] .= ho[c][n])
 
-      # also send to future
+      # send to future
       (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n])
       (c != 1) && (fn[c,n] != C+1) && (hi_future[c][n] .= ho[c][n])
     end
@@ -45,7 +45,7 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
   for c=C:-1:1
     fill!(Σ∇Hi, 0.0)
     for n=1:N
-      # recieve gradient from future aswell
+      # recieve gradient from future
       (c != C) && (bn[c,n] == C+1) && (∇ho[c][n] .+= ∇hi_future[c][n])
       (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n])
 
@@ -59,7 +59,7 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
       end
     end
     
-    # send signal
+    # send gradient
     for n=1:N 
       ∇hi[c][n] .= Σ∇Hi[1+d*(n-1):d*n,:] # this line responsible for 100% of allocations
       ∇ho[bn[c,n]][n] .= ∇hi[c][n]
@@ -70,7 +70,12 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
   end
 end
 
-function recur!(mi,hi)
+function reset_state!(mi,hi,unrollsteps)
+  mi[unrollsteps+1] .*= 0.0
+  hi[unrollsteps+1] .*= 0.0
+end
+
+function recur_state!(mi,hi,unrollsteps)
   mi[1] .= mi[unrollsteps+1]
   hi[1] .= hi[unrollsteps+1]
 end
