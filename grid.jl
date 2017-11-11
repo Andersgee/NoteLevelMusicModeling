@@ -31,13 +31,12 @@ function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, mi_future,hi_future)
       lstm!(n, WHib, g[c], mi[c], mo[c], ho[c])
 
       # send signal
-      mi[fn[c,n]][n] .= mo[c][n]
-      hi[fn[c,n]][n] .= ho[c][n]
+      (fn[c,n] != C+1) && (mi[fn[c,n]][n] .= mo[c][n])
+      (fn[c,n] != C+1) && (hi[fn[c,n]][n] .= ho[c][n])
 
       # also send to future
-      # (appropriate states will be replaced when propagating signal through that in next time step)
-      mi_future[c][n] .= mo[c][n]
-      hi_future[c][n] .= ho[c][n]
+      (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n])
+      (c != 1) && (fn[c,n] != C+1) && (hi_future[c][n] .= ho[c][n])
     end
   end
 end
@@ -46,7 +45,7 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
   for c=C:-1:1
     fill!(Σ∇Hi, 0.0)
     for n=1:N
-      # if it isnt the first or last cell and the cell didnt send to garbage, then add recurrent gradient
+      # recieve gradient from future aswell
       (c != C) && (bn[c,n] == C+1) && (∇ho[c][n] .+= ∇hi_future[c][n])
       (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n])
 
@@ -195,10 +194,10 @@ function ∇gridvars(N,C,d,bsz, unrollsteps)
 end
 
 function encodevars(L,d,N,bsz)
-  Wenc = [randn(2*N*d,L) for a=1:1]
+  Wenc = [randn(2*N*d,L)./sqrt(L) for a=1:1]
   benc = [zeros(2*N*d,1) for a=1:1]
 
-  Wdec = [randn(L,2*N*d)./sqrt(d) for a=1:1]
+  Wdec = [randn(L,2*N*d)./sqrt(2*N*d) for a=1:1]
   bdec = [zeros(L,1) for a=1:1]
 
   return Wenc, benc, Wdec, bdec
@@ -222,15 +221,15 @@ function optimizevars(d,N,L)
   bm = [[zeros(d,1) for gate=1:4] for n=1:N]
   bv = [[zeros(d,1) for gate=1:4] for n=1:N]
 
-  mWenc = [zeros(d*2,L) for n=1:N]
-  vWenc = [zeros(d*2,L) for n=1:N]
-  mbenc = [zeros(d*2,1) for n=1:N]
-  vbenc = [zeros(d*2,1) for n=1:N]
+  mWenc = [zeros(2*N*d,L) for a=1:1]
+  vWenc = [zeros(2*N*d,L) for a=1:1]
+  mbenc = [zeros(2*N*d,1) for a=1:1]
+  vbenc = [zeros(2*N*d,1) for a=1:1]
 
-  mWdec = [zeros(L,d*2) for n=1:N]
-  vWdec = [zeros(L,d*2) for n=1:N]
-  mbdec = [zeros(L,1) for n=1:N]
-  vbdec = [zeros(L,1) for n=1:N]
+  mWdec = [zeros(L,2*N*d) for a=1:1]
+  vWdec = [zeros(L,2*N*d) for a=1:1]
+  mbdec = [zeros(L,1) for a=1:1]
+  vbdec = [zeros(L,1) for a=1:1]
 
   return Wm, Wv, bm, bv, mWenc, vWenc, mbenc, vbenc, mWdec, vWdec, mbdec, vbdec
 end
