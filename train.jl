@@ -18,7 +18,7 @@ function train(data,L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=30*gridsize[seqdim] # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
+  seqlen=24*60 # 24*60 would mean 60 seconds
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
@@ -26,23 +26,22 @@ function train(data,L,d,bsz,gridsize)
   smoothcostV=log(2)*L # if logistic (probably)
   smoothcost = zeros(0) #array
 
-  filename1 = string("trained/trained_bsz",bsz,"_seqlen",seqlen,".jld")
-  filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
+  filename1 = string("trained/",length(gridsize),"d_bsz",bsz,"_seqlen",seqlen,".jld")
+  filename2 = string("trained/",length(gridsize),"d_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
-  smoothcostV=smoothcost[end]
+  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  #smoothcostV=smoothcost[end]
 
   println(smoothcostV)
   println("starting training.")
   while smoothcostV > 0.01
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
-    GRID.reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
+    GRID.reset_state!(C, N, mi,hi,mo,ho)
 
-    for batchstep=1:gridsize[seqdim]:seqlen-gridsize[seqdim]+1
+    for batchstep=1:seqlen-gridsize[seqdim]+1
       DATALOADER.get_partialbatch!(x,t,batch,gridsize,seqdim,batchstep,bsz)
-      GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
 
       # fprop
       GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn,d)
@@ -60,6 +59,8 @@ function train(data,L,d,bsz,gridsize)
       GRID.∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d)
       GRID.∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo)
       GRID.∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn)
+
+      GRID.recur_state!(C, mi,hi,mo,ho)
 
       # adjust encoders, grid and decoders
       gradientstep+=1

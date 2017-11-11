@@ -20,7 +20,7 @@ function ∇lstm!(n, ∇WHib, ∇ho, ho, g, mi, mo, ∇mo)
     @. ∇WHib[4] = ∇ho[n]*(1-ho[n]^2)*g[n][3]*g[n][1]*(1-g[n][4]^2) + ∇mo[n]*g[n][1]*(1-g[n][4]^2)
 end
 
-function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, mi_future,hi_future)
   for c=1:C
     Hi[c] .= vcat(hi[c]...) # This line responsible for 100% of allocations
     for n=1:N
@@ -33,21 +33,23 @@ function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
       # send signal
       mi[fn[c,n]][n] .= mo[c][n]
       hi[fn[c,n]][n] .= ho[c][n]
+
+      # also send to future
+      # (appropriate states will be replaced when propagating signal through that in next time step)
+      mi_future[c][n] .= mo[c][n]
+      hi_future[c][n] .= ho[c][n]
     end
   end
 end
 
-function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo)
-  for n=1:N
-    for gate=1:4
-      fill!(Σ∇W[n][gate], 0.0)
-      fill!(Σ∇b[n][gate], 0.0)
-    end
-  end
-
+function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo, ∇hi_future,∇mi_future)
   for c=C:-1:1
     fill!(Σ∇Hi, 0.0)
-    for n=1:N 
+    for n=1:N
+      # if it isnt the first or last cell and the cell didnt send to garbage, then add recurrent gradient
+      (c != C) && (bn[c,n] == C+1) && (∇ho[c][n] .+= ∇hi_future[c][n])
+      (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n])
+
       ∇lstm!(n, ∇WHib, ∇ho[c], ho[c], g[c], mi[c], mo[c], ∇mo[c])
       for gate=1:4
         A_mul_Bt!(∇W[n][gate], ∇WHib[gate], Hi[c])
@@ -69,48 +71,82 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
   end
 end
 
-function encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d)
-  c=1
-  for i=1:length(x)
-    himi = Wenc[projdim]*x[i].+benc[projdim]
-    hi[c][projdim] .= himi[1:d,:]
-    mi[c][projdim] .= himi[1+d:2*d,:]
-    c=fn[c,seqdim]
+function recur!(mi,hi)
+  mi[1] .= mi[unrollsteps+1]
+  hi[1] .= hi[unrollsteps+1]
+end
+
+function hyperlstm!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, unrollsteps)
+  for s=1:unrollsteps
+    grid!(C,N,fn,WHib,W,b,g[s],mi[s],mo[s],hi[s],ho[s],Hi, mi[s+1],hi[s+1])
   end
 end
 
-function ∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn)
-  fill!(Σ∇Wenc[projdim], 0.0)
-  fill!(Σ∇benc[projdim], 0.0)
-  c=1
-  for i=1:length(x)
-    A_mul_Bt!(∇Wenc, vcat(∇hi[c][projdim],∇mi[c][projdim]), x[i])
-    Σ∇Wenc[projdim] .+= ∇Wenc
-    Σ∇benc[projdim].+=[∇hi[c][projdim];∇mi[c][projdim]]
-    c=fn[c,seqdim]
+function ∇hyperlstm!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo, unrollsteps)
+  for n=1:N
+    for gate=1:4
+      fill!(Σ∇W[n][gate], 0.0)
+      fill!(Σ∇b[n][gate], 0.0)
+    end
+  end
+  for s=unrollsteps:-1:1
+    ∇grid!(C,N,d, bn,∇WHib,∇hi[s],∇ho[s],ho[s],g[s],mi[s],mo[s],∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi[s],∇mo[s], ∇hi[s+1],∇mi[s+1])
   end
 end
 
-function decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
-  c=C
-  for i=length(z):-1:1
-    z[i] .= Wdec[projdim]*[ho[c][projdim];mo[c][projdim]] .+ bdec[projdim]
-    c=bn[c,seqdim]
+
+function encode!(x, Wenc, benc, mi, hi, N, d,hiNmiN)
+  #for s=1:unrollsteps
+  for s=1:length(x)
+    A_mul_B!(hiNmiN[s], Wenc[1], x[s]) #hiNmiN[s] .= Wenc[1]*x[s] .+ benc
+    hiNmiN[s] .+= benc[1]
+
+    #project
+    for n=1:N
+      hi[s][1][n] .= hiNmiN[s][d*(n-1)+1:d*n,:]
+      mi[s][1][n] .= hiNmiN[s][d*(n-1)+1+N*d:d*n+N*d,:]
+    end
   end
 end
 
-function ∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d)
-  fill!(Σ∇Wdec[projdim], 0.0)
-  fill!(Σ∇bdec[projdim], 0.0)
-  c=C
-  for i=length(∇z):-1:1
-    A_mul_Bt!(∇Wdec, ∇z[i], vcat(ho[c][projdim],mo[c][projdim]))
-    Σ∇Wdec[projdim].+=∇Wdec
-    Σ∇bdec[projdim].+=∇z[i]
-    ∇homo = Wdec[projdim]'*∇z[i]
-    ∇ho[c][projdim] .= ∇homo[1:d,:]
-    ∇mo[c][projdim] .= ∇homo[1+d:d*2,:]
-    c=bn[c,seqdim]
+function ∇encode!(x, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi,∇hiNmiN)
+  fill!(Σ∇Wenc[1], 0.0)
+  fill!(Σ∇benc[1], 0.0)
+  for s=1:length(x)
+    ∇hiNmiN[s] .= vcat(vcat(∇hi[s][1]...),vcat(∇mi[s][1]...))
+    Σ∇benc[1] .+= ∇hiNmiN[s]
+    A_mul_Bt!(∇Wenc[1], ∇hiNmiN[s], x[s]) #∇Wenc[1] .= ∇hiNmiN * x[s]'
+    Σ∇Wenc[1] .+= ∇Wenc[1]
+  end
+end
+
+function decode!(C, z, ho, mo, Wdec, bdec, hoNmoN)
+  for s=1:length(z)
+    hoNmoN[s] .= vcat(vcat(ho[s][C]...),vcat(mo[s][C]...))
+    A_mul_B!(z[s], Wdec[1], hoNmoN[s])
+    z[s] .+= bdec[1]
+  end
+end
+
+function ∇decode!(∇z, z, t, ∇Wdec, Σ∇Wdec, C, Σ∇bdec,Wdec,∇ho,∇mo,N,d, hoNmoN,∇hoNmoN)
+  fill!(Σ∇Wdec[1], 0.0)
+  fill!(Σ∇bdec[1], 0.0)
+  for s=1:length(z)
+    ∇z[s] .= σ(z[s]) .- t[s] #assuming logistic xent lossfunction
+    #∇z[s] .= softmax(z[s]) .- t[s] #assuming softmax xent lossfunction
+    #∇z[s] .= z[s] .- t[s] #assuming (half) squared error lossfunction
+    #∇z[s] .= y[s] .- t[s] #assuming y has been calculated elsewhere
+
+    Σ∇bdec[1] .+= ∇z[s]
+    A_mul_Bt!(∇Wdec[1], ∇z[s], hoNmoN[s]) #∇Wdec[1] = ∇z[s] * hoNmoN'
+    Σ∇Wdec[1] .+= ∇Wdec[1]
+
+    At_mul_B!(∇hoNmoN[s], Wdec[1], ∇z[s]) #∇hoNmoN[s] .= Wdec[1]' * ∇z[s]
+    #project
+    for n=1:N
+      ∇ho[s][C][n] .= ∇hoNmoN[s][d*(n-1)+1:d*n,:]
+      ∇mo[s][C][n] .= ∇hoNmoN[s][d*(n-1)+1+N*d:d*n+N*d,:]
+    end
   end
 end
 
@@ -118,57 +154,64 @@ end
 # pre-allocate #
 ################
 
-function gridvars(N,C,d,bsz)
+function gridvars(N,C,d,bsz, unrollsteps)
   W = [[randn(d,d*N)./sqrt(d*N) for gate=1:4] for n=1:N]
   b = [[zeros(d,1) for gate=1:4] for n=1:N]
-  for n=1:N
-    fill!(b[n][2], 1.0) #positive bias to gate2=σ(W*x+b) will backprob better since: ∇mi = ∇mo.*gate2
-    # (usually called forget gate but a big value means forget less... better name is "remember" gate)
-    # bias 1 to gate2 means initially on average σ(1)=73% instead of σ(0)=50% is remembered
-  end
+  #for n=1:N
+  #  fill!(b[n][2], 1.0) #positive bias to remember gate will backprob better. (∇mi = ∇mo.*gate2 + ∇ho.*stuff)
+  #end
 
-  g = [[[zeros(d,bsz) for gate=1:4] for n=1:N] for c=1:C]
-  mi = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  mo = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  hi = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  ho = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
+  g = [[[[zeros(d,bsz) for gate=1:4] for n=1:N] for c=1:C] for s=1:unrollsteps+1]
+  mi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  mo = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  hi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  ho = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
   Hi = [zeros(d*N,bsz) for c=1:C+1]
   WHib = [zeros(d,bsz) for gate=1:4]
-  return W,b,g,mi,mo,hi,ho,Hi,WHib
+
+  hiNmiN = [zeros(2*N*d,bsz) for s=1:unrollsteps]
+  hoNmoN = [zeros(2*N*d,bsz) for s=1:unrollsteps]
+
+  return W,b,g,mi,mo,hi,ho,Hi,WHib, hiNmiN,hoNmoN
 end
 
-function ∇gridvars(N,C,d,bsz)
+function ∇gridvars(N,C,d,bsz, unrollsteps)
   ∇W = [[zeros(d,d*N) for gate=1:4] for n=1:N]
   Σ∇W = [[zeros(d,d*N) for gate=1:4] for n=1:N]
   Σ∇b = [[zeros(d,bsz) for gate=1:4] for n=1:N]
-  ∇mi = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  ∇mo = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  ∇hi = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
-  ∇ho = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
+
+  ∇mi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  ∇mo = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  ∇hi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
+  ∇ho = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
   ∇Hi = [zeros(d*N,bsz) for gate=1:4]
   Σ∇Hi = zeros(d*N,bsz)
   ∇WHib = [zeros(d,bsz) for gate=1:4]
-  return ∇W, Σ∇W, Σ∇b, ∇hi, ∇ho, ∇Hi, Σ∇Hi, ∇WHib,∇mi,∇mo
+
+  ∇hiNmiN = [zeros(2*N*d,bsz) for s=1:unrollsteps]
+  ∇hoNmoN = [zeros(2*N*d,bsz) for s=1:unrollsteps]
+
+  return ∇W, Σ∇W, Σ∇b, ∇hi, ∇ho, ∇Hi, Σ∇Hi, ∇WHib,∇mi,∇mo, ∇hiNmiN,∇hoNmoN
 end
 
 function encodevars(L,d,N,bsz)
-  Wenc = [randn(d*2,L) for n=1:N]
-  benc = [zeros(d*2,1) for n=1:N]
+  Wenc = [randn(2*N*d,L) for a=1:1]
+  benc = [zeros(2*N*d,1) for a=1:1]
 
-  Wdec = [randn(L,d*2)./sqrt(d) for n=1:N]
-  bdec = [zeros(L,1) for n=1:N]
+  Wdec = [randn(L,2*N*d)./sqrt(d) for a=1:1]
+  bdec = [zeros(L,1) for a=1:1]
 
   return Wenc, benc, Wdec, bdec
 end
 
 function ∇encodevars(L,d,N,bsz)
-  ∇Wenc = zeros(d*2,L)
-  Σ∇Wenc = [zeros(d*2,L) for n=1:N]
-  Σ∇benc = [zeros(d*2,bsz) for n=1:N]
+  ∇Wenc = [zeros(2*N*d,L) for a=1:1]
+  Σ∇Wenc = [zeros(2*N*d,L) for a=1:1]
+  Σ∇benc = [zeros(2*N*d,bsz) for a=1:1]
 
-  ∇Wdec = zeros(L,d*2)
-  Σ∇Wdec = [zeros(L,d*2) for n=1:N]
-  Σ∇bdec = [zeros(L,bsz) for n=1:N]
+  ∇Wdec = [zeros(L,2*N*d) for a=1:1]
+  Σ∇Wdec = [zeros(L,2*N*d) for a=1:1]
+  Σ∇bdec = [zeros(L,bsz) for a=1:1]
 
   return ∇Wenc, Σ∇Wenc, Σ∇benc, ∇Wdec, Σ∇Wdec, Σ∇bdec
 end
@@ -199,30 +242,39 @@ end
 function linearindexing(G)
   N=length(G)
   C=prod(G)
-  fn = Array{Int32,2}(C,N)
-  bn = Array{Int32,2}(C,N)
-  trash = C+1 #trash unit avoids branching
+  fn = Array{Int,2}(C,N)
+  bn = Array{Int,2}(C,N)
+  garbage = C+1 #garbage unit avoids branching
   for n=1:N
     k = prod(G[1:n-1])
     interval=prod(G[1:n])
     for c=1:C
       fn[c,n] = c+k
       bn[c,n] = c-k
-      if c%interval == 0; fn[c-k+1:c,n] = trash end
-      if (c-k)%interval == 0; bn[c-k+1:c,n] = trash end
+      if c%interval == 0; fn[c-k+1:c,n] = garbage end
+      if (c-k)%interval == 0; bn[c-k+1:c,n] = garbage end
     end
   end
   return N, C, fn, bn
 end
 
-function sequencevars(L,bsz,gridsize,seqdim,seqlen)
-  x = [zeros(L,bsz) for i=1:gridsize[seqdim]]
-  z = [zeros(L,bsz) for i=1:gridsize[seqdim]]
-  t = [zeros(L,bsz) for i=1:gridsize[seqdim]]
-  ∇z = [zeros(L,bsz) for i=1:gridsize[seqdim]]
+function sequencevars(L,bsz,unrollsteps,seqlen)
+  x = [zeros(L,bsz) for i=1:unrollsteps]
+  z = [zeros(L,bsz) for i=1:unrollsteps]
+  t = [zeros(L,bsz) for i=1:unrollsteps]
+  ∇z = [zeros(L,bsz) for i=1:unrollsteps]
   batch = [zeros(L,seqlen+1) for b=1:bsz]
 
   return x, z, t, ∇z, batch
+end
+
+function reset_state!(C, N, mi,hi,mo,ho)
+  for c=1:C
+    for n=1:N
+      fill!(hi[c][n], 0.0)
+      fill!(mi[c][n], 0.0)
+    end
+  end
 end
 
 function continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
@@ -274,7 +326,7 @@ end
 function logistic_xent(smoothcost,t,z,bsz)
   # for multiple, independent, classifications, sigmoid activation
   #integrate σ(z)-t and get: log(1+exp(z))-z*t
-  E = sum(log.(1 .+ exp.(z[end])) .- z[end].*t[end])/bsz
+  E = sum(log.(1 .+ exp.(z)) .- z.*t)/bsz
   return 0.999*smoothcost + 0.001*E
 end
 
