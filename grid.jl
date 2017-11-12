@@ -35,7 +35,8 @@ function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, mi_future,hi_future)
       (fn[c,n] != C+1) && (hi[fn[c,n]][n] .= ho[c][n])
 
       # send to future
-      (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n].*0.5)
+      #(c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n].*0.5)
+      (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n])
       (c != 1) && (fn[c,n] != C+1) && (hi_future[c][n] .= ho[c][n])
     end
   end
@@ -46,7 +47,8 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
     fill!(Σ∇Hi, 0.0)
     for n=1:N
       # recieve gradient from future
-      (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n].*0.5)
+      #(c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n].*0.5)
+      (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n])
       (c != C) && (bn[c,n] == C+1) && (∇ho[c][n] .+= ∇hi_future[c][n])
 
       ∇lstm!(n, ∇WHib, ∇ho[c], ho[c], g[c], mi[c], mo[c], ∇mo[c])
@@ -164,6 +166,9 @@ function gridvars(N,C,d,bsz, unrollsteps)
   #for n=1:N
   #  fill!(b[n][2], 1.0) #positive bias to remember gate will backprob better. (∇mi = ∇mo.*gate2 + ∇ho.*stuff)
   #end
+  for n=1:N
+    fill!(b[n][2], -1.0)
+  end
 
   g = [[[[zeros(d,bsz) for gate=1:4] for n=1:N] for c=1:C] for s=1:unrollsteps+1]
   mi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]

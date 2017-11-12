@@ -20,8 +20,8 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   #Ev=log(2)*L
   Ev=L/2
 
-  fname1 = string("trained/hyperlstm.jld")
-  fname2 = string("trained/hyperlstm_opt.jld")
+  fname1 = string("trained/_u",unrollsteps,"_H",N,"lstm.jld")
+  fname2 = string("trained/_u",unrollsteps,"_H",N,"lstm_opt.jld")
 
   #Wenc, benc, W, b, Wdec, bdec = load_model(fname1)
   #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E = load_optimizevars(fname2)
@@ -44,17 +44,17 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
       GRID.∇encode!(x, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi,∇hiNmiN)
 
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.01)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.01)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.01)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.005)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.005)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.005)
       #OPTIMIZER.maxnormconstrain_W!(W, N, 4)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.01)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.01)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.01)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.005)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.005)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.005)
 
       Ev = 0.999*Ev + 0.001*sum(abs.(∇z[unrollsteps]))/bsz
+      println("gradientstep: ", gradientstep, " loss: ", Ev)
     end
-    println("gradientstep: ", gradientstep, " loss: ", Ev)
     append!(E, Ev)
     CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
     CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E)
@@ -67,8 +67,8 @@ function main()
   lengths = [data[n][end,1] for n=1:length(data)]
   println(lengths)
 
-  gridsize=[2,2,2]
-  unrollsteps=10
+  gridsize=[2,2,2,2,2]
+  unrollsteps=24
   L=256
   d=256
   bsz=8

@@ -18,7 +18,7 @@ def convert(filename):
 	# midiutil.MidiFile writes format1 files, which has resolution ("Divisions") 960 instead of 480 like format0 files. so divide tempo by 2.
 	# Actually, ignore the line above.
 
-	C=4 #scaledown factor
+	C=1 #scaledown factor
 
 	generated = np.load("generated_npy/"+filename+".npy")
 	mf = MIDIFile(numTracks=1, removeDuplicates=True, deinterleave=True, adjust_origin=True)

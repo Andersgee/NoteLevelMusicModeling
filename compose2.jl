@@ -6,8 +6,10 @@ include("grid.jl")
 include("dataloader.jl")
 include("checkpoint.jl")
 
+import Distributions
+
 function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
-  fname1 = string("trained/hyperlstm.jld")
+  fname1 = string("trained/_u24_H5lstm.jld")
   N, C, fn, bn = GRID.linearindexing(gridsize)
   W,b,g,mi,mo,hi,ho,Hi,WHib, hiNmiN,hoNmoN = GRID.gridvars(N,C,d,bsz, unrollsteps)
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
@@ -32,11 +34,11 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     #println("mean(z[1] ",mean(z[1]))
     #println("std(z[1] ",std(z[1]))
     #println()
-    #println(mean(mo[1][2][3]))
+    println(mean(mo[1][28][3]))
     #println(mean(ho[1][6][2]))
     #println(mean(mo[1][6][2]))
-    println("mean(y[1] ",mean(y[1]))
-    println("maximum(y[1] ",maximum(y[1]))
+    #println("mean(y[1] ",mean(y[1]))
+    #println("maximum(y[1] ",maximum(y[1]))
   end
   
   #println(bdec)
@@ -56,7 +58,8 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     y[1] .= GRID.σ(z[1])
 
     for i=1:bsz
-      batch[i][:,s] .= (y[1][:,i].>T).*y[1][:,i]
+      notes=Distributions.wsample(1:L, y[1][:,i], 10)
+      batch[i][notes,s] .= y[1][notes,i].>T
     end
   end
 
@@ -75,15 +78,16 @@ function main()
   lengths = [data[n][end,1] for n=1:length(data)]
   println(lengths)
 
-  gridsize=[2,2,2]
+  gridsize=[2,2,2,2,2]
   unrollsteps=1
   L=256
   d=256
   #bsz=32
   bsz=4
-  seqlen=24*60
+  #seqlen=24*60
+
   #seqlen=24*120
-  #seqlen=150
+  seqlen=500
   #seqlen=200
 
   compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
