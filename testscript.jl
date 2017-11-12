@@ -44,13 +44,13 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
       GRID.∇encode!(x, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi,∇hiNmiN)
 
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.002)
-      OPTIMIZER.maxnormconstrain_W!(W, N, 4)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.01)
+      #OPTIMIZER.maxnormconstrain_W!(W, N, 4)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.01)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.01)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.01)
 
       Ev = 0.999*Ev + 0.001*sum(abs.(∇z[unrollsteps]))/bsz
     end

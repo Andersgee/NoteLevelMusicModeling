@@ -35,7 +35,7 @@ function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, mi_future,hi_future)
       (fn[c,n] != C+1) && (hi[fn[c,n]][n] .= ho[c][n])
 
       # send to future
-      (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n])
+      (c != 1) && (fn[c,n] != C+1) && (mi_future[c][n] .= mo[c][n].*0.5)
       (c != 1) && (fn[c,n] != C+1) && (hi_future[c][n] .= ho[c][n])
     end
   end
@@ -46,8 +46,8 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
     fill!(Σ∇Hi, 0.0)
     for n=1:N
       # recieve gradient from future
+      (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n].*0.5)
       (c != C) && (bn[c,n] == C+1) && (∇ho[c][n] .+= ∇hi_future[c][n])
-      (c != C) && (bn[c,n] == C+1) && (∇mo[c][n] .+= ∇mi_future[c][n])
 
       ∇lstm!(n, ∇WHib, ∇ho[c], ho[c], g[c], mi[c], mo[c], ∇mo[c])
       for gate=1:4
@@ -199,11 +199,11 @@ function ∇gridvars(N,C,d,bsz, unrollsteps)
 end
 
 function encodevars(L,d,N,bsz)
-  Wenc = [randn(2*N*d,L)./sqrt(L) for a=1:1]
+  Wenc = [randn(2*N*d,L) for a=1:1]
   benc = [zeros(2*N*d,1) for a=1:1]
 
   Wdec = [randn(L,2*N*d)./sqrt(2*N*d) for a=1:1]
-  bdec = [zeros(L,1) for a=1:1]
+  bdec = [ones(L,1).*-2 for a=1:1] #negative bias on decoder
 
   return Wenc, benc, Wdec, bdec
 end

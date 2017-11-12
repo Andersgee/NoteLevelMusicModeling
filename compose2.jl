@@ -24,19 +24,28 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     GRID.hyperlstm!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, unrollsteps)
     GRID.decode!(C, z, ho, mo, Wdec, bdec, hoNmoN)
     y[1] .= GRID.σ(z[1])
+
+    #println("std: x[1] ",round(std(x[1]),3), " \ty[1] ",round(std(y[1]),3))
+    #println("mean: x[1] ",round(mean(x[1]),3), " \ty[1] ",round(mean(y[1]),3))
+
     #println("maximum(z[1] ",maximum(z[1]))
     #println("mean(z[1] ",mean(z[1]))
     #println("std(z[1] ",std(z[1]))
     #println()
-    println(mean(mo[1][2][2]))
+    #println(mean(mo[1][2][3]))
     #println(mean(ho[1][6][2]))
+    #println(mean(mo[1][6][2]))
+    println("mean(y[1] ",mean(y[1]))
+    println("maximum(y[1] ",maximum(y[1]))
   end
   
+  #println(bdec)
+
 
   println("Starting generating.")
   #m=0.08
   #m=0.1
-  T=0.26
+  T=0.1
   for s=1:seqlen
     x[1] .= y[1].>T
 
@@ -72,10 +81,10 @@ function main()
   d=256
   #bsz=32
   bsz=4
-  #seqlen=24*60
+  seqlen=24*60
   #seqlen=24*120
   #seqlen=150
-  seqlen=200
+  #seqlen=200
 
   compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
