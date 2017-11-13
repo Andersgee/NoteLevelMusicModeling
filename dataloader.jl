@@ -7,8 +7,8 @@ function get_batch!(batch, seqlen, bsz, data)
   lengths = [data[n][end,1] for n=1:length(data)]
   lengths = lengths.-seqlen #actually, subtract seqlen for correct weighted sampling
   for b=1:bsz
-    #song = Distributions.wsample(1:length(data), lengths)
-    song=3 # overfit a single song (3 means appass3 if beethoven)
+    song = Distributions.wsample(1:length(data), lengths)
+    #song=3 # overfit a single song (3 means appass3 if beethoven)
 
     X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
     for n=1:size(data[song],1)

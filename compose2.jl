@@ -9,7 +9,8 @@ include("checkpoint.jl")
 import Distributions
 
 function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
-  fname1 = string("trained/_u24_H5lstm.jld")
+  #fname1 = string("trained/_u24_H5lstm.jld")
+  fname1 = string("trained/H5lstm_u48.jld")
   N, C, fn, bn = GRID.linearindexing(gridsize)
   W,b,g,mi,mo,hi,ho,Hi,WHib, hiNmiN,hoNmoN = GRID.gridvars(N,C,d,bsz, unrollsteps)
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
@@ -18,9 +19,10 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   
   println("Starting priming.")
   DATALOADER.get_batch!(batch, seqlen, bsz, data)
-  for batchstep=1:unrollsteps:seqlen-unrollsteps
-    DATALOADER.get_partialbatch!(x,t,batch,unrollsteps,batchstep,bsz)
+  for batchstep=1:seqlen-1
+    println("Priming ",round(100*batchstep/(seqlen-unrollsteps),0),"%",)
 
+    DATALOADER.get_partialbatch!(x,t,batch,unrollsteps,batchstep,bsz)
     GRID.recur_state!(mi,hi,unrollsteps)
     GRID.encode!(x, Wenc, benc, mi, hi, N, d,hiNmiN)
     GRID.hyperlstm!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, unrollsteps)
@@ -34,32 +36,45 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     #println("mean(z[1] ",mean(z[1]))
     #println("std(z[1] ",std(z[1]))
     #println()
-    println(mean(mo[1][28][3]))
+    #println(mean(mo[1][28][3][:,1]))
     #println(mean(ho[1][6][2]))
     #println(mean(mo[1][6][2]))
     #println("mean(y[1] ",mean(y[1]))
-    #println("maximum(y[1] ",maximum(y[1]))
+    println("maximum(y[1] ",maximum(y[1]))
   end
-  
-  #println(bdec)
 
+  for i=1:bsz
+    fill!(batch[i],0.0)
+  end
 
   println("Starting generating.")
-  #m=0.08
-  #m=0.1
-  T=0.1
-  for s=1:seqlen
-    x[1] .= y[1].>T
+  #T=0.1
+  #T=0.011
+  #T=0.06
+  T=0.0
 
+  K=1
+
+  for i=1:bsz
+    notes=Distributions.wsample(1:L, y[1][:,i], K)
+    x[1][notes,i] .= y[1][notes,i].>T
+  end
+
+  for batchstep=1:seqlen
+    println("Generating ",round(100*batchstep/(seqlen),0),"%",)
+    
     GRID.recur_state!(mi,hi,unrollsteps)
     GRID.encode!(x, Wenc, benc, mi, hi, N, d,hiNmiN)
     GRID.hyperlstm!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, unrollsteps)
     GRID.decode!(C, z, ho, mo, Wdec, bdec, hoNmoN)
     y[1] .= GRID.σ(z[1])
 
+    fill!(x[1], 0.0)
+
     for i=1:bsz
-      notes=Distributions.wsample(1:L, y[1][:,i], 10)
-      batch[i][notes,s] .= y[1][notes,i].>T
+      notes=Distributions.wsample(1:L, y[1][:,i], K)
+      x[1][notes,i] .= y[1][notes,i].>T
+      batch[i][notes,batchstep] .= y[1][notes,i]
     end
   end
 
@@ -67,7 +82,9 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   for i=1:bsz
     filename=string("data/generated_npy/generated",i,".npy")
     NPZ.npzwrite(filename, batch[i])
-    #println(filename)
+
+    sumNoteOnEvents = sum(batch[i][1:128,:] .> 0)
+    println(filename, " has ",sumNoteOnEvents, " Note On Events")
   end
 
 end
@@ -87,8 +104,8 @@ function main()
   #seqlen=24*60
 
   #seqlen=24*120
-  seqlen=500
-  #seqlen=200
+  #seqlen=1000
+  seqlen = 500
 
   compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end

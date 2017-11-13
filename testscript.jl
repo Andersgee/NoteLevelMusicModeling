@@ -20,8 +20,8 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   #Ev=log(2)*L
   Ev=L/2
 
-  fname1 = string("trained/_u",unrollsteps,"_H",N,"lstm.jld")
-  fname2 = string("trained/_u",unrollsteps,"_H",N,"lstm_opt.jld")
+  fname1 = string("trained/H",N,"lstm_u",unrollsteps,".jld")
+  fname2 = string("trained/H",N,"lstm_u",unrollsteps,"_opt.jld")
 
   #Wenc, benc, W, b, Wdec, bdec = load_model(fname1)
   #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E = load_optimizevars(fname2)
@@ -44,13 +44,13 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
       GRID.∇encode!(x, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi,∇hiNmiN)
 
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.005)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.005)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.005)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
       #OPTIMIZER.maxnormconstrain_W!(W, N, 4)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.005)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.005)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.005)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
 
       Ev = 0.999*Ev + 0.001*sum(abs.(∇z[unrollsteps]))/bsz
       println("gradientstep: ", gradientstep, " loss: ", Ev)
@@ -62,19 +62,13 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
 
 function main()
-  #data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
-  data = DATALOADER.BeethovenLudwigvan()
-  lengths = [data[n][end,1] for n=1:length(data)]
-  println(lengths)
-
+  data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
   gridsize=[2,2,2,2,2]
-  unrollsteps=24
+  unrollsteps=24*2
   L=256
   d=256
-  bsz=8
-  #seqlen=24*60
-  seqlen=24*120
-
+  bsz=32
+  seqlen=24*60
   train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
 
