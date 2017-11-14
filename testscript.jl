@@ -23,9 +23,9 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   fname1 = string("trained/H",N,"lstm_u",unrollsteps,".jld")
   fname2 = string("trained/H",N,"lstm_u",unrollsteps,"_opt.jld")
 
-  #Wenc, benc, W, b, Wdec, bdec = load_model(fname1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E = load_optimizevars(fname2)
-  #Ev=E[end]
+  Wenc, benc, W, b, Wdec, bdec = load_model(fname1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E = load_optimizevars(fname2)
+  Ev=E[end]
 
   #while Ev > 1
   while true
