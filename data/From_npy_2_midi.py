@@ -49,7 +49,7 @@ def convert(filename):
 						duration=n
 						break
 				volume = max(minvolume, generated[y,x])
-				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*127)
+				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*100)
 
 	with open("generated_mid/"+filename+".mid", 'wb') as fn:
 		mf.writeFile(fn)
