@@ -54,6 +54,9 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 
       Ev = 0.999*Ev + 0.001*sum(abs.(∇z[unrollsteps]))/bsz
       println("gradientstep: ", gradientstep, " loss: ", Ev)
+
+      xent = sum(z[unrollsteps].*(1-t[unrollsteps]) .- log.(GRID.σ(z[unrollsteps])))/bsz
+      println("xent ", round(xent,3))
     end
     append!(E, Ev)
     CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)

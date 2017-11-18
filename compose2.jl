@@ -8,6 +8,14 @@ include("checkpoint.jl")
 
 import Distributions
 
+function coord_cos_sim(x)
+  #cosine similarity to coordinate axes
+  return x./norm(x)
+  #similarity = cossim(x)
+  #acos.(similarity) #θ DIFFERENCE in radians
+  #acos.(similarity)*180/π #θ DIFFERENCE in degrees
+end
+
 function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   fname1 = string("trained/H5lstm_u48.jld")
   N, C, fn, bn = GRID.linearindexing(gridsize)
@@ -15,6 +23,8 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,unrollsteps,seqlen)
   y = t
+
+  TEST = zeros(0)
 
   println("Starting priming.")
   DATALOADER.get_batch!(batch, seqlen, bsz, data)
@@ -27,30 +37,46 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     GRID.hyperlstm!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi, unrollsteps)
     GRID.decode!(C, z, ho, mo, Wdec, bdec, hoNmoN)
     y[1] .= GRID.σ(z[1])
+
+
+    #similarity = coord_cos_sim((y[1][:,1]).^3)
+    similarity = coord_cos_sim(y[1][:,1])
+    #println(maximum(similarity))
+    append!(TEST, maximum(similarity))
+
+    xent = sum(z[1].*(1-t[1]) .- log.(y[1]))
+    println("xent ", round(xent,3))
   end
 
   
 
   println("Starting generating.")
 
-  Temperature = 0.9
-  Threshold = 0.022
+  #simThreshold = mean(TEST)*0.95
+  simThreshold = 0.19
+  #simThreshold = 0.08
+  println("simThreshold: ", simThreshold)
 
-  for I=1:10
-    println("Iteration ",I)
-    #K=I+2
-    K=I+1
-    #reset batch before writing to it
-    for i=1:bsz; fill!(batch[i],0.0) end
+  for I=1:1
+    K=I
 
+    for i=1:bsz
+      fill!(batch[i],0.0)
+    end
     for batchstep=1:seqlen
-      #println("Generating ",round(100*batchstep/(seqlen),0),"%",)
-      
       fill!(x[1], 0.0)
       for i=1:bsz
-        notes=Distributions.wsample(1:L, (y[1][:,i]).^(1/Temperature), K)
-        x[1][notes,i] .= y[1][notes,i].>Threshold
-        batch[i][notes,batchstep] .= (y[1][notes,i].>Threshold).*y[1][notes,i]
+        similarity = coord_cos_sim(y[1][:,i])
+        #println(maximum(similarity))
+
+        notes=find(similarity .> simThreshold)
+        if length(notes)>0
+          wsampled = Distributions.wsample(1:length(notes), y[1][notes,i], K)
+          notes = notes[wsampled]
+        end
+
+        x[1][notes,i] .= y[1][notes,i] .> 0
+        batch[i][notes,batchstep] .= y[1][notes,i]
       end
 
       GRID.recur_state!(mi,hi,unrollsteps)
@@ -60,6 +86,7 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
       y[1] .= GRID.σ(z[1])
     end
 
+    println("Iteration ",I)
     for i=1:bsz
       sumNoteOnEvents = sum(batch[i][1:128,:] .> 0)
       if sumNoteOnEvents>0
@@ -79,10 +106,10 @@ function main()
   unrollsteps=1
   L=256
   d=256
-  bsz=8
+  bsz=1
 
-  #seqlen=500
-  seqlen = 1000
+  #seqlen=240
+  seqlen = 24*30
 
   compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
