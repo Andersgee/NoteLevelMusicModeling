@@ -170,12 +170,18 @@ end
 function gridvars(N,C,d,bsz, unrollsteps)
   W = [[randn(d,d*N)./sqrt(d*N) for gate=1:4] for n=1:N]
   b = [[zeros(d,1) for gate=1:4] for n=1:N]
+  
+  #HLSTM has a form of exploding memory, H2LSTM should not have that?
+  # edit: investigating I found encoder weights was initialized to large
+  # making memory vector way to large and hidden vector saturated
+  # zero remember bias should be fine now, or even positive bias to benefit from better backprop
+  #for n=1:N
+  #  fill!(b[n][2], -1.0)
+  #end
+
   #for n=1:N
   #  fill!(b[n][2], 1.0) #positive bias to remember gate will backprob better. (∇mi = ∇mo.*gate2 + ∇ho.*stuff)
   #end
-  for n=1:N
-    fill!(b[n][2], -1.0)
-  end
 
   g = [[[[zeros(d,bsz) for gate=1:4] for n=1:N] for c=1:C] for s=1:unrollsteps+1]
   mi = [[[zeros(d,bsz) for n=1:N] for c=1:C+1] for s=1:unrollsteps+1]
@@ -211,11 +217,15 @@ function ∇gridvars(N,C,d,bsz, unrollsteps)
 end
 
 function encodevars(L,d,N,bsz)
-  Wenc = [randn(2*N*d,L) for a=1:1]
+  # more than 5 notes is unusual?..
+  # divide by sqrt(5) to make std 1 on z (z=W*x)
+  # if anything.. divide by more.. say sqrt(6) or sqrt(10)...
+  Wenc = [randn(2*N*d,L)./sqrt(10) for a=1:1]
   benc = [zeros(2*N*d,1) for a=1:1]
 
   Wdec = [randn(L,2*N*d)./sqrt(2*N*d) for a=1:1]
-  bdec = [ones(L,1).*-2 for a=1:1] #negative bias on decoder
+  bdec = [zeros(L,1) for a=1:1]
+  #bdec = [ones(L,1).*-1 for a=1:1] #negative bias on decoder?
 
   return Wenc, benc, Wdec, bdec
 end

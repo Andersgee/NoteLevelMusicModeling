@@ -17,7 +17,7 @@ function coord_cos_sim(x)
 end
 
 function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
-  fname1 = string("trained/H5lstm_u48.jld")
+  fname1 = string("trained/H2lstm_u48.jld")
   N, C, fn, bn = GRID.linearindexing(gridsize)
   W,b,g,mi,mo,hi,ho,Hi,WHib, hiNmiN,hoNmoN = GRID.gridvars(N,C,d,bsz, unrollsteps)
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
@@ -28,6 +28,16 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 
   println("Starting priming.")
   DATALOADER.get_batch!(batch, seqlen, bsz, data)
+
+  for i=1:bsz
+    sumNoteOnEvents = sum(batch[i][1:128,:] .> 0)
+    if sumNoteOnEvents>0
+      filename=string("data/generated_npy/getbatch",i,".npy")
+      NPZ.npzwrite(filename, batch[i])
+      println("saved ",filename, " (has ",sumNoteOnEvents, " Note On Events)")
+    end
+  end
+
   for batchstep=1:seqlen-1
     #println("Priming ",round(100*batchstep/(seqlen-unrollsteps),0),"%",)
 
@@ -38,17 +48,21 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
     GRID.decode!(C, z, ho, mo, Wdec, bdec, hoNmoN)
     y[1] .= GRID.σ(z[1])
 
+    println(std(vcat(mo[unrollsteps][C][1],mo[unrollsteps][C][2]), 1))
+    println(std(vcat(ho[unrollsteps][C][1],ho[unrollsteps][C][2]), 1))
 
-    #similarity = coord_cos_sim((y[1][:,1]).^3)
     similarity = coord_cos_sim(y[1][:,1])
     #println(maximum(similarity))
     append!(TEST, maximum(similarity))
 
-    xent = sum(z[1].*(1-t[1]) .- log.(y[1]))
-    println("xent ", round(xent,3))
   end
 
   
+
+  Eend=4.170124834956534
+  #ythresh=GRID.σ(-Eend)
+  ythresh=0.2
+  println("ythresh: ", ythresh)
 
   println("Starting generating.")
 
@@ -57,7 +71,7 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   #simThreshold = 0.08
   println("simThreshold: ", simThreshold)
 
-  for I=1:1
+  for I=1:20
     K=I
 
     for i=1:bsz
@@ -69,11 +83,15 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
         similarity = coord_cos_sim(y[1][:,i])
         #println(maximum(similarity))
 
-        notes=find(similarity .> simThreshold)
-        if length(notes)>0
-          wsampled = Distributions.wsample(1:length(notes), y[1][notes,i], K)
-          notes = notes[wsampled]
-        end
+        #notes=find(similarity .> simThreshold)
+        #notes=find(y[1][:,i] .> ythresh)
+
+        #if length(notes)>0
+        #  wsampled = Distributions.wsample(1:length(notes), y[1][notes,i], K)
+        #  notes = notes[wsampled]
+        #end
+
+        notes = Distributions.wsample(1:L, y[1][:,i], K)
 
         x[1][notes,i] .= y[1][notes,i] .> 0
         batch[i][notes,batchstep] .= y[1][notes,i]
@@ -100,13 +118,14 @@ function compose(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
 
 function main()
-  data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
+  #data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
+  data = DATALOADER.TchaikovskyPeter()
 
-  gridsize=[2,2,2,2,2]
+  gridsize=[2,2]
   unrollsteps=1
   L=256
   d=256
-  bsz=1
+  bsz=4
 
   #seqlen=240
   seqlen = 24*30

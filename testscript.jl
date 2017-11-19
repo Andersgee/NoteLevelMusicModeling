@@ -17,8 +17,7 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 
   gradientstep=0
   E = zeros(0)
-  #Ev=log(2)*L
-  Ev=L/2
+  Ev=log(2)*L
 
   fname1 = string("trained/H",N,"lstm_u",unrollsteps,".jld")
   fname2 = string("trained/H",N,"lstm_u",unrollsteps,"_opt.jld")
@@ -27,7 +26,6 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
   mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, E = CHECKPOINT.load_optimizevars(fname2)
   Ev=E[end]
 
-  #while Ev > 1
   while true
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
     GRID.reset_state!(mi,hi,unrollsteps)
@@ -44,19 +42,21 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
       GRID.∇encode!(x, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi,∇hiNmiN)
 
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.01)
       #OPTIMIZER.maxnormconstrain_W!(W, N, 4)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.01)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.01)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.01)
 
-      Ev = 0.999*Ev + 0.001*sum(abs.(∇z[unrollsteps]))/bsz
-      println("gradientstep: ", gradientstep, " loss: ", Ev)
+      #mo[step][cell][dim]
+      println(std(vcat(mo[unrollsteps][4][1],mo[unrollsteps][4][2]),1))
+      println(std(vcat(ho[unrollsteps][4][1],ho[unrollsteps][4][2]),1))
 
       xent = sum(z[unrollsteps].*(1-t[unrollsteps]) .- log.(GRID.σ(z[unrollsteps])))/bsz
-      println("xent ", round(xent,3))
+      Ev = 0.999*Ev + 0.001*xent
+      println("gradientstep: ", gradientstep, " loss: ", Ev)
     end
     append!(E, Ev)
     CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
@@ -65,12 +65,14 @@ function train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
 
 function main()
-  data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
-  gridsize=[2,2,2,2,2]
+  #data = DATALOADER.load_dataset(24*120) #minimum song length (24*60 would mean 60 seconds)
+  data = DATALOADER.TchaikovskyPeter()
+
+  gridsize=[2,2]
   unrollsteps=24*2
   L=256
   d=256
-  bsz=32
+  bsz=8
   seqlen=24*60
   train(data, gridsize, unrollsteps, L, d, bsz, seqlen)
 end
