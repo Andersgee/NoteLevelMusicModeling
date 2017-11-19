@@ -85,7 +85,8 @@ function main()
   data = DATALOADER.TchaikovskyPeter()
 
   L = 256 #input/output units
-  d = 256*4 #hidden units
+  #d = 256 #hidden units
+  d = 64
   batchsize=8
   gridsize = [24*2,1] # 24*2 means backprop 2 seconds (48 timesteps)
   train(data, L, d, batchsize, gridsize)

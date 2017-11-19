@@ -15,11 +15,11 @@ function compose(data, L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=24*120
+  seqlen=24*60
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
   y=t
   # load trained model
-  fname1="trained/basic_bsz8_seqlen1440.jld"
+  fname1 = "trained/basic_bsz8_seqlen1440.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
 
   println("Loading prime data.")
@@ -43,10 +43,10 @@ function compose(data, L,d,bsz,gridsize)
     #println(maximum(y[1][:,1]))
   end
 
-  T = 0.2
+  T = 0.13
   println("Starting generating.")
-  for I=1:1
-    K=3
+  for I=1:1:100
+    K=I
     for i=1:bsz
       fill!(batch[i],0.0)
     end
@@ -70,12 +70,20 @@ function compose(data, L,d,bsz,gridsize)
     for i=1:bsz
       sumNoteOnEvents = sum(batch[i][1:128,:] .> 0)
       sumNoteOffEvents = sum(batch[i][129:256,:] .> 0)
-      if sumNoteOnEvents>0
-        filename=string("data/generated_npy/generated",i,".npy")
-        NPZ.npzwrite(filename, batch[i])
-        println("saved ",filename, " (has on:",sumNoteOnEvents, " off:", sumNoteOffEvents,")")
-      end
+      filename=string("data/generated_npy/generated",i,".npy")
+      println(filename, " (has on:",sumNoteOnEvents, " off:", sumNoteOffEvents,")")
+      #if sumNoteOnEvents>0
+      #  filename=string("data/generated_npy/generated",i,".npy")
+      #  NPZ.npzwrite(filename, batch[i])
+      #  println("saved ",filename, " (has on:",sumNoteOnEvents, " off:", sumNoteOffEvents,")")
+      #end
     end
+  end
+
+  for i=1:bsz
+    filename=string("data/generated_npy/generated",i,".npy")
+    NPZ.npzwrite(filename, batch[i])
+    println("saved ",filename, " (has on:",sumNoteOnEvents, " off:", sumNoteOffEvents,")")
   end
 
 end
@@ -83,8 +91,8 @@ end
 function main()
   data = DATALOADER.TchaikovskyPeter()
   L = 256
-  d = 256
-  batchsize=4
+  d = 64
+  batchsize=8
   gridsize = [1,1]
   compose(data, L, d, batchsize, gridsize)
 end
