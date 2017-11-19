@@ -152,10 +152,10 @@ function ∇gridvars(N,C,d,bsz)
 end
 
 function encodevars(L,d,N,bsz)
-  Wenc = [randn(d*2,L) for n=1:N]
+  Wenc = [randn(d*2,L)./sqrt(10) for n=1:N]
   benc = [zeros(d*2,1) for n=1:N]
 
-  Wdec = [randn(L,d*2)./sqrt(d) for n=1:N]
+  Wdec = [randn(L,d*2)./sqrt(d*2) for n=1:N]
   bdec = [zeros(L,1) for n=1:N]
 
   return Wenc, benc, Wdec, bdec

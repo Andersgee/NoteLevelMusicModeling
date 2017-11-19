@@ -78,14 +78,13 @@ function main()
   #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
   
   #data = DATALOADER.BachJohannSebastian()
-  data = DATALOADER.BeethovenLudwigvan()
-  lengths = [data[n][end,1] for n=1:length(data)]
-  println(lengths)
+  #data = DATALOADER.BeethovenLudwigvan()
+  data = TchaikovskyPeter()
 
   L = 256 #input/output units
   d = 256 #hidden units
   batchsize=8
-  gridsize = [24*2,6] #backprop 2 seconds
+  gridsize = [24*2,1] #backprop 2 seconds
   train(data, L, d, batchsize, gridsize)
 end
 

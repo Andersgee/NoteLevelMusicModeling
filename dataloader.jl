@@ -10,11 +10,14 @@ function get_batch!(batch, seqlen, bsz, data)
 
 
     #song=rand(1:length(data)) # pick a random song
-    song=3 # overfit a single song (appass3?)
+    #song=3 # overfit a single song (appass3?)
+    song=2 #august if tchaikovsky
+    #shift=rand(-3:3)
+    shift=0
 
     X=zeros(256,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
     for n=1:size(data[song],1)
-        X[data[song][n,2],data[song][n,1]] = 1
+        X[data[song][n,2]+shift,data[song][n,1]] = 1
     end
 
     s=rand(1:size(X,2)-seqlen) #random sequence within selected song
