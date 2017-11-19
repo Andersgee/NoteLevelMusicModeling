@@ -25,8 +25,8 @@ function train(data,L,d,bsz,gridsize)
   smoothcostV=log(2)*L
   smoothcost = zeros(0) #array
 
-  filename1 = string("trained/basic_bsz",bsz,"_seqlen",seqlen,".jld")
-  filename2 = string("trained/basic_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
+  fname1 = string("trained/basic12key_bsz",bsz,"_seqlen",seqlen,".jld")
+  fname2 = string("trained/basic12key_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
@@ -50,7 +50,7 @@ function train(data,L,d,bsz,gridsize)
 
       # display info
       logistic_xent = sum((z[end].*(1-t[end]) - log.(GRID.σ(z[end]))))/bsz
-      smoothcostV = 0.999*smoothcostV + 0.001*logistic_xent
+      smoothcostV = 0.99*smoothcostV + 0.01*logistic_xent
       #smoothcostV = GRID.cost(smoothcostV,t,z,bsz)
       println("gradientstep: ", gradientstep, " smoothcost: ",round(smoothcostV,3))
 
@@ -71,8 +71,8 @@ function train(data,L,d,bsz,gridsize)
     end
 
     append!(smoothcost, smoothcostV)
-    CHECKPOINT.save_model(filename1, Wenc, benc, W, b, Wdec, bdec)
-    CHECKPOINT.save_optimizevars(filename2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
+    CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
+    CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
 
   end
 end
@@ -86,9 +86,9 @@ function main()
 
   L = 256 #input/output units
   #d = 256 #hidden units
-  d = 64
+  d = 128
   batchsize=8
-  gridsize = [24*2,1] # 24*2 means backprop 2 seconds (48 timesteps)
+  gridsize = [24*4,1] # 24*2 would mean backprop 2 seconds (48 timesteps)
   train(data, L, d, batchsize, gridsize)
 end
 
