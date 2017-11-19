@@ -22,19 +22,20 @@ function train(data,L,d,bsz,gridsize)
   x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
-  smoothcostV=log(L)
+  smoothcostV=log(2)*L
   smoothcost = zeros(0) #array
 
-  filename1 = string("trained/trained_bsz",bsz,"_seqlen",seqlen,".jld")
-  filename2 = string("trained/trainedopt_bsz",bsz,"seqlen",seqlen,".jld")
+  filename1 = string("trained/basic_bsz",bsz,"_seqlen",seqlen,".jld")
+  filename2 = string("trained/basic_bsz",bsz,"seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
-  smoothcostV=smoothcost[end]
+  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  #smoothcostV=smoothcost[end]
 
   println("starting training.")
-  while smoothcostV > 0.01
+  #while smoothcostV > 0.01
+  while true
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
     GRID.reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
 
@@ -48,7 +49,9 @@ function train(data,L,d,bsz,gridsize)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
 
       # display info
-      smoothcostV = GRID.cost(smoothcostV,t,z,bsz)
+      logistic_xent = sum((z[end].*(1-t[end]) - log.(GRID.σ(z[end]))))/bsz
+      smoothcostV = 0.999*smoothcostV + 0.001*logistic_xent
+      #smoothcostV = GRID.cost(smoothcostV,t,z,bsz)
       println("gradientstep: ", gradientstep, " smoothcost: ",round(smoothcostV,3))
 
       # bprop
@@ -59,12 +62,12 @@ function train(data,L,d,bsz,gridsize)
 
       # adjust encoders, grid and decoders
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.01)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.01)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.01)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.001)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.001)
     end
 
     append!(smoothcost, smoothcostV)
@@ -79,7 +82,7 @@ function main()
   
   #data = DATALOADER.BachJohannSebastian()
   #data = DATALOADER.BeethovenLudwigvan()
-  data = TchaikovskyPeter()
+  data = DATALOADER.TchaikovskyPeter()
 
   L = 256 #input/output units
   d = 256 #hidden units

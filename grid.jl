@@ -2,12 +2,19 @@ module GRID
 
 σ(x) = 1.0./(1.0.+exp.(-x))
 
+function σgate!(y,x, i)
+  @. y[i] = 1.0 / (1.0 + exp(-x[i]))
+end
+
+function tanhgate!(y,x, i)
+  @. y[i] = tanh(x[i])
+end
+
 function lstm!(n, WHib, g, mi, mo, ho)
-    # 0 allocations
-    @. g[n][1] = σ(WHib[1])
-    @. g[n][2] = σ(WHib[2])
-    @. g[n][3] = σ(WHib[3])
-    @. g[n][4] = tanh(WHib[4])
+    σgate!(g[n], WHib, 1)
+    σgate!(g[n], WHib, 2)
+    σgate!(g[n], WHib, 3)
+    tanhgate!(g[n], WHib, 4)
     @. mo[n] = g[n][2]*mi[n] + g[n][1]*g[n][4]
     @. ho[n] = tanh(g[n][3]*mo[n])
 end
@@ -152,6 +159,8 @@ function ∇gridvars(N,C,d,bsz)
 end
 
 function encodevars(L,d,N,bsz)
+  #divide by sqrt(number of notes) to get std1 at z (z=W*x)
+  # 10 seems like a good number with some marginal to not saturate gates
   Wenc = [randn(d*2,L)./sqrt(10) for n=1:N]
   benc = [zeros(d*2,1) for n=1:N]
 
@@ -199,8 +208,8 @@ end
 function linearindexing(G)
   N=length(G)
   C=prod(G)
-  fn = Array{Int32,2}(C,N)
-  bn = Array{Int32,2}(C,N)
+  fn = Array{Int,2}(C,N)
+  bn = Array{Int,2}(C,N)
   trash = C+1 #trash unit avoids branching
   for n=1:N
     k = prod(G[1:n-1])

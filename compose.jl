@@ -28,8 +28,10 @@ function compose(L,d,bsz,gridsize)
   #filename1 = string("trained/trained_bsz64_seqlen500.jld")
   #filename1 = string("trained/trained_bsz4_seqlen4000.jld")
   #filename1 = "trained/trained_bsz32_seqlen1440.jld"
-  filename1="trained/trained_bsz8_seqlen1440.jld"
+  filename1="trained/basic_bsz8_seqlen1440.jld"
+  filename2="trained/basic_bsz8seqlen1440_opt.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
 
   println("Composing ",bsz," songs in parallell")
 
@@ -37,7 +39,9 @@ function compose(L,d,bsz,gridsize)
     batch[i][randTriad(),1]=0.5
   end
 
-  T = 0.2
+  T=GRID.σ(-smoothcost[end]*2)
+  println("Threshold: ", T)
+  #T = 0.02
   for iteration=1:200
 
     for batchstep=1:seqlen
@@ -80,7 +84,9 @@ function compose(L,d,bsz,gridsize)
       #events=sum(batch[i].>0)
       #events=sum(batch[i][1:128,end-500:end].>0)
       if events!=0
-        println("song ",i," has ",events, " events")
+        println("song ",i," has ",events, " events. (saving)")
+        filename=string("data/generated_npy/generated",i,".npy")
+        NPZ.npzwrite(filename, batch[i])
       end
     end
   end
@@ -98,8 +104,8 @@ function main()
   L = 256 #input/output units
   d = 256 #hidden units
   #batchsize=16
-  batchsize=16
-  gridsize = [1,6]
+  batchsize=8
+  gridsize = [1,1]
   compose(L, d, batchsize, gridsize)
 end
 
