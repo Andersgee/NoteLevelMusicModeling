@@ -24,8 +24,7 @@ end
 
 function optimize_bencdec!(N, θ, ∇, m, v, t, α=0.001, β₁=0.9, β₂=0.999, ϵ=1e-8)
   αᵪ = α*sqrt(1-β₂^t)/(1-β₁^t)
-  #for n=1:N
-  for n=2 # right now Im only projecting into dimension 2.
+  for n=1
     mean∇ = mean(∇[n],2) # this line is unfortunate.
     @. m[n] = β₁*m[n] + (1-β₁)*mean∇
     @. v[n] = β₂*v[n] + (1-β₂)*(mean∇^2)
@@ -35,8 +34,7 @@ end
 
 function optimize_Wencdec!(N, θ, ∇, m, v, t, α=0.001, β₁=0.9, β₂=0.999, ϵ=1e-8)
   αᵪ = α*sqrt(1-β₂^t)/(1-β₁^t)
-  #for n=1:N
-  for n=2 # right now Im only projecting into dimension 2.
+  for n=1
     @. m[n] = β₁*m[n] + (1-β₁)*∇[n]
     @. v[n] = β₂*v[n] + (1-β₂)*(∇[n]^2)
     @. θ[n] -= αᵪ*m[n]/(sqrt(v[n])+ϵ)

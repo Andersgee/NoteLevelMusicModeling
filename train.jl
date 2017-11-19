@@ -19,7 +19,7 @@ function train(data,L,d,bsz,gridsize)
   seqdim = 1
   projdim = 2
   seqlen=30*gridsize[seqdim] # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
-  x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
+  x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
 
   gradientstep=0
   smoothcostV=log(2)*L
@@ -44,9 +44,9 @@ function train(data,L,d,bsz,gridsize)
       GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
 
       # fprop
-      GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn,d)
+      GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
       GRID.grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
-      GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
+      GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
 
       # display info
       logistic_xent = sum((z[end].*(1-t[end]) - log.(GRID.σ(z[end]))))/bsz
@@ -56,9 +56,9 @@ function train(data,L,d,bsz,gridsize)
 
       # bprop
       GRID.∇cost!(∇z, z, t)
-      GRID.∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d)
+      GRID.∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d, homo,∇homo)
       GRID.∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W, ∇Hi,Σ∇Hi,W,∇mi,∇mo)
-      GRID.∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn)
+      GRID.∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn, d, ∇himi)
 
       # adjust encoders, grid and decoders
       gradientstep+=1

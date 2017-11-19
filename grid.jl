@@ -76,47 +76,58 @@ function ∇grid!(C,N,d, bn,∇WHib,∇hi,∇ho,ho,g,mi,mo,∇W,Σ∇b,Hi,Σ∇W
   end
 end
 
-function encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d)
+function encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
   c=1
   for i=1:length(x)
-    himi = Wenc[projdim]*x[i].+benc[projdim]
-    hi[c][projdim] .= himi[1:d,:]
-    mi[c][projdim] .= himi[1+d:2*d,:]
+    #himi[1] = Wenc[1]*x[i].+benc[1]
+    A_mul_B!(himi[1], Wenc[1], x[i])
+    himi[1] .+= benc[1]
+    hi[c][projdim] .= himi[1][1:d,:]
+    mi[c][projdim] .= himi[1][1+d:2*d,:]
     c=fn[c,seqdim]
   end
 end
 
-function ∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn)
-  fill!(Σ∇Wenc[projdim], 0.0)
-  fill!(Σ∇benc[projdim], 0.0)
+function ∇encode!(x, seqdim, projdim, ∇Wenc, Σ∇Wenc, Σ∇benc, ∇hi, ∇mi, fn, d, ∇himi)
+  fill!(Σ∇Wenc[1], 0.0)
+  fill!(Σ∇benc[1], 0.0)
   c=1
   for i=1:length(x)
-    A_mul_Bt!(∇Wenc, vcat(∇hi[c][projdim],∇mi[c][projdim]), x[i])
-    Σ∇Wenc[projdim] .+= ∇Wenc
-    Σ∇benc[projdim].+=[∇hi[c][projdim];∇mi[c][projdim]]
+    #∇himi[1] .= [∇hi[c][projdim];∇mi[c][projdim]]
+    ∇himi[1][1:d,:] .= ∇hi[c][projdim]
+    ∇himi[1][1+d:2*d,:] .= ∇mi[c][projdim]
+    A_mul_Bt!(∇Wenc[1], ∇himi[1], x[i])
+    Σ∇Wenc[1] .+= ∇Wenc[1]
+    Σ∇benc[1] .+= ∇himi[1]
     c=fn[c,seqdim]
   end
 end
 
-function decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
+function decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
   c=C
   for i=length(z):-1:1
-    z[i] .= Wdec[projdim]*[ho[c][projdim];mo[c][projdim]] .+ bdec[projdim]
+    #homo[i] .= [ho[c][projdim];mo[c][projdim]]
+    homo[i][1:d,:] .= ho[c][projdim]
+    homo[i][1+d:2*d,:] .= mo[c][projdim]
+    A_mul_B!(z[i], Wdec[1], homo[i])
+    z[i] .+= bdec[1]
     c=bn[c,seqdim]
   end
 end
 
-function ∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d)
-  fill!(Σ∇Wdec[projdim], 0.0)
-  fill!(Σ∇bdec[projdim], 0.0)
+function ∇decode!(∇z, seqdim, projdim, ∇Wdec, Σ∇Wdec, ho,mo,C,bn,Σ∇bdec,Wdec,∇ho,∇mo,d, homo,∇homo)
+  fill!(Σ∇Wdec[1], 0.0)
+  fill!(Σ∇bdec[1], 0.0)
   c=C
   for i=length(∇z):-1:1
-    A_mul_Bt!(∇Wdec, ∇z[i], vcat(ho[c][projdim],mo[c][projdim]))
-    Σ∇Wdec[projdim].+=∇Wdec
-    Σ∇bdec[projdim].+=∇z[i]
-    ∇homo = Wdec[projdim]'*∇z[i]
-    ∇ho[c][projdim] .= ∇homo[1:d,:]
-    ∇mo[c][projdim] .= ∇homo[1+d:d*2,:]
+    A_mul_Bt!(∇Wdec[1], ∇z[i], homo[i])
+    Σ∇Wdec[1] .+= ∇Wdec[1]
+    Σ∇bdec[1] .+= ∇z[i]
+    #∇homo[1] .= Wdec[1]'*∇z[i]
+    At_mul_B!(∇homo[1], Wdec[1], ∇z[i])
+    
+    ∇ho[c][projdim] .= ∇homo[1][1:d,:]
+    ∇mo[c][projdim] .= ∇homo[1][1+d:2*d,:]
     c=bn[c,seqdim]
   end
 end
@@ -141,6 +152,7 @@ function gridvars(N,C,d,bsz)
   ho = [[zeros(d,bsz) for n=1:N] for c=1:C+1]
   Hi = [zeros(d*N,bsz) for c=1:C+1]
   WHib = [zeros(d,bsz) for gate=1:4]
+
   return W,b,g,mi,mo,hi,ho,Hi,WHib
 end
 
@@ -161,23 +173,23 @@ end
 function encodevars(L,d,N,bsz)
   #divide by sqrt(number of notes) to get std1 at z (z=W*x)
   # 10 seems like a good number with some marginal to not saturate gates
-  Wenc = [randn(d*2,L)./sqrt(10) for n=1:N]
-  benc = [zeros(d*2,1) for n=1:N]
+  Wenc = [randn(d*2,L)./sqrt(10) for a=1:1]
+  benc = [zeros(d*2,1) for a=1:1]
 
-  Wdec = [randn(L,d*2)./sqrt(d*2) for n=1:N]
-  bdec = [zeros(L,1) for n=1:N]
+  Wdec = [randn(L,d*2)./sqrt(d*2) for a=1:1]
+  bdec = [zeros(L,1) for a=1:1]
 
   return Wenc, benc, Wdec, bdec
 end
 
 function ∇encodevars(L,d,N,bsz)
-  ∇Wenc = zeros(d*2,L)
-  Σ∇Wenc = [zeros(d*2,L) for n=1:N]
-  Σ∇benc = [zeros(d*2,bsz) for n=1:N]
+  ∇Wenc = [zeros(d*2,L) for a=1:1]
+  Σ∇Wenc = [zeros(d*2,L) for a=1:1]
+  Σ∇benc = [zeros(d*2,bsz) for a=1:1]
 
-  ∇Wdec = zeros(L,d*2)
-  Σ∇Wdec = [zeros(L,d*2) for n=1:N]
-  Σ∇bdec = [zeros(L,bsz) for n=1:N]
+  ∇Wdec = [zeros(L,d*2) for a=1:1]
+  Σ∇Wdec = [zeros(L,d*2) for a=1:1]
+  Σ∇bdec = [zeros(L,bsz) for a=1:1]
 
   return ∇Wenc, Σ∇Wenc, Σ∇benc, ∇Wdec, Σ∇Wdec, Σ∇bdec
 end
@@ -188,15 +200,15 @@ function optimizevars(d,N,L)
   bm = [[zeros(d,1) for gate=1:4] for n=1:N]
   bv = [[zeros(d,1) for gate=1:4] for n=1:N]
 
-  mWenc = [zeros(d*2,L) for n=1:N]
-  vWenc = [zeros(d*2,L) for n=1:N]
-  mbenc = [zeros(d*2,1) for n=1:N]
-  vbenc = [zeros(d*2,1) for n=1:N]
+  mWenc = [zeros(d*2,L) for a=1:1]
+  vWenc = [zeros(d*2,L) for a=1:1]
+  mbenc = [zeros(d*2,1) for a=1:1]
+  vbenc = [zeros(d*2,1) for a=1:1]
 
-  mWdec = [zeros(L,d*2) for n=1:N]
-  vWdec = [zeros(L,d*2) for n=1:N]
-  mbdec = [zeros(L,1) for n=1:N]
-  vbdec = [zeros(L,1) for n=1:N]
+  mWdec = [zeros(L,d*2) for a=1:1]
+  vWdec = [zeros(L,d*2) for a=1:1]
+  mbdec = [zeros(L,1) for a=1:1]
+  vbdec = [zeros(L,1) for a=1:1]
 
   return Wm, Wv, bm, bv, mWenc, vWenc, mbenc, vbenc, mWdec, vWdec, mbdec, vbdec
 end
@@ -231,7 +243,12 @@ function sequencevars(L,bsz,gridsize,seqdim,seqlen)
   ∇z = [zeros(L,bsz) for i=1:gridsize[seqdim]]
   batch = [zeros(L,seqlen+1) for b=1:bsz]
 
-  return x, z, t, ∇z, batch
+  himi = [zeros(2*d,bsz) for a=1:1]
+  homo = [zeros(2*d,bsz) for i=1:gridsize[seqdim]]
+  ∇himi = [zeros(2*d,bsz) for a=1:1]
+  ∇homo = [zeros(2*d,bsz) for a=1:1]
+
+  return x, z, t, ∇z, batch, himi,homo,∇himi,∇homo
 end
 
 function continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
