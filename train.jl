@@ -45,7 +45,7 @@ function train(data,L,d,bsz,gridsize)
 
       # fprop
       GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
-      GRID.grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+      GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
 
       # display info

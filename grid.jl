@@ -27,9 +27,13 @@ function ∇lstm!(n, ∇WHib, ∇ho, ho, g, mi, mo, ∇mo)
     @. ∇WHib[4] = ∇ho[n]*(1-ho[n]^2)*g[n][3]*g[n][1]*(1-g[n][4]^2) + ∇mo[n]*g[n][1]*(1-g[n][4]^2)
 end
 
-function grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+function grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
   for c=1:C
-    Hi[c] .= vcat(hi[c]...) # This line responsible for 100% of allocations
+    #Hi[c] .= vcat(hi[c]...) # This line responsible for 100% of allocations
+    for n=1:N
+        Hi[c][1+d*(n-1):d*n,:] .= hi[c][n]
+    end
+    
     for n=1:N
       for gate=1:4
         A_mul_B!(WHib[gate], W[n][gate], Hi[c])
