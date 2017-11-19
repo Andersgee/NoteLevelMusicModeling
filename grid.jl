@@ -246,16 +246,19 @@ function continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
   end
 end
 
-function reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
-  #instad of mi.*=0 and hi.*=0 , this way I can reset a sequence of choice if multiple exist
-  #for 2dimensions, there is only one sequence since the other is temporal
-  c1=1
+function reset_sequence!(gridsize, seqdim, projdim, mo, ho, fn)
+  c2=gridsize[seqdim]
   for i=1:gridsize[projdim]
-    fill!(mi[c1][seqdim], 0.0)
-    fill!(hi[c1][seqdim], 0.0)
+    fill!(mo[c2][seqdim], 0.0)
+    fill!(ho[c2][seqdim], 0.0)
 
-    c1=fn[c1,projdim]
+    c2=fn[c2,projdim]
   end
+  #this code used to reset first input.. but I always replace first input with last output in continue_sequence!
+  #it now resets last output. Only reason I write this is to remember to invesigate what other branches had this "bug"...
+  #could this be the long lasting peculiar increase in loss when continuing an interuppted training? I bet it was.
+  # PERHAPS this is also the reason why my weightmatrices dealing with dimension1 seqdim seems to biased towards zero
+  # compared to number in the exact same matric that deals with dimension2 projdim.. remains to be seen.
 end
 
 function prob(z)

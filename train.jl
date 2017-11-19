@@ -26,7 +26,7 @@ function train(data,L,d,bsz,gridsize)
   smoothcost = zeros(0) #array
 
   filename1 = string("trained/basic_bsz",bsz,"_seqlen",seqlen,".jld")
-  filename2 = string("trained/basic_bsz",bsz,"seqlen",seqlen,"_opt.jld")
+  filename2 = string("trained/basic_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
@@ -37,7 +37,7 @@ function train(data,L,d,bsz,gridsize)
   #while smoothcostV > 0.01
   while true
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
-    GRID.reset_sequence!(gridsize, seqdim, projdim, mi, hi, fn)
+    GRID.reset_sequence!(gridsize, seqdim, projdim, mo, ho, fn)
 
     for batchstep=1:gridsize[seqdim]:seqlen-gridsize[seqdim]+1
       DATALOADER.get_partialbatch!(x,t,batch,gridsize,seqdim,batchstep,bsz)
@@ -85,9 +85,9 @@ function main()
   data = DATALOADER.TchaikovskyPeter()
 
   L = 256 #input/output units
-  d = 256 #hidden units
+  d = 256*4 #hidden units
   batchsize=8
-  gridsize = [24*2,1] #backprop 2 seconds
+  gridsize = [24*2,1] # 24*2 means backprop 2 seconds (48 timesteps)
   train(data, L, d, batchsize, gridsize)
 end
 
