@@ -310,9 +310,20 @@ function cost(smoothcost,t,z,bsz)
   return 0.999*smoothcost + 0.001*-sum(t[end].*log.(σ(z[end])))/bsz
 end
 
+#function ∇cost!(∇z, z, t)
+#  for i=1:length(z)
+#    ∇z[i] .= σ(z[i]) .- t[i]
+#  end
+#end
+
 function ∇cost!(∇z, z, t)
+  #using y=z.>0  with
+  #lets call the following the "binary ReLU gradient":
+
+  ϵ = 10e-8 #some tiny gradient if target is 1 and z is exactly 0 (can that even happen?)
   for i=1:length(z)
-    ∇z[i] .= σ(z[i]) .- t[i]
+    @. ∇z[i] = z[i] * ((t[i]==1)*(z[i]<0) + (t[i]==0)*(z[i]>0)) + (t[i]==1)*(z[i]==0)*ϵ
+    #@. ∇z[i] = z * ((t==1)*(z<0) + (t==0)*(z>0))
   end
 end
 

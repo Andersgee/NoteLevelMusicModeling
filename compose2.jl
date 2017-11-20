@@ -20,7 +20,7 @@ function compose(data, L,d,bsz,gridsize)
   y=t
   # load trained model
   #fname1 = "trained/loss01_basic1depth_12key_bsz32_seqlen2910.jld"
-  fname1 = "trained/loss006_basic1depth_12key_bsz32_seqlen2910.jld"
+  fname1 = "trained/accuracy_basic1depth_12key_bsz32_seqlen2910.jld"
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
 
   println("Loading prime data.")
@@ -44,40 +44,48 @@ function compose(data, L,d,bsz,gridsize)
     GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
     GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
     GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
-    GRID.σgate!(y,z,1) #y[1] = GRID.σ(z[1]) 
+    #println(maximum(z[1][:,1]))
   end
 
   #T = 0.14
-  T = 0.1
+  T = 0.0
+
+  temp=0.1
   println("Starting generating.")
-  for I=1:1000
-    if I>8
-      K=8
-    else
-      K=I
-    end
+  for I=1:1
+    K=1
 
     for i=1:bsz
       fill!(batch[i],0.0)
     end
     for batchstep=1:seqlen
 
+      positive = (z[1].>0).*z[1]
+      
+
       #get input
       fill!(x[1], 0.0)
       for i=1:bsz
-        #notes=findmax(y[1][:,i])[2]
-        #notes = Distributions.wsample(1:L, (y[1][:,i]).^2, K)
-        notes = Distributions.wsample(1:L, y[1][:,i], K)
-        x[1][notes,i] .= y[1][notes,i] .> T # get x here instead of with get_partialbatch
-        batch[i][notes,batchstep] .= (y[1][notes,i] .> T).*y[1][notes,i]
+        #a=positive[:,i]./temp
+        #notes = Distributions.wsample(1:L, positive[:,i], K)
+        
+        probable = exp.(positive[:,i])./sum(exp.(positive[:,i]))  
+        notes = Distributions.wsample(1:L, probable, K)
+
+        #a = z[1][:,i]./temp 
+        #probable = exp.(a)./sum(exp.(a))
+        #notes = Distributions.wsample(1:L, probable, K)
+
+        x[1][notes,i] .= (z[1][notes,i] .!== 0)
+        batch[i][notes,batchstep] .= x[1][notes,i]
       end
+
 
       #fprop
       GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
       GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
       GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
-      GRID.σgate!(y,z,1)
     end
 
     println("Iteration ",I)
@@ -99,7 +107,7 @@ function main()
   data = DATALOADER.TchaikovskyPeter()
   L = 256
   d = 256
-  batchsize=8
+  batchsize=4
   gridsize = [1,1]
   compose(data, L, d, batchsize, gridsize)
 end
