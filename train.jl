@@ -19,19 +19,19 @@ function train(data,L,d,bsz,gridsize)
   seqdim = 1
   projdim = 2
   seqlen=30*gridsize[seqdim] # seqlen=6*gridsize[seqdim] would mean optimize 6 times within a batch
-  x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
+  x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen,d)
 
   gradientstep=0
   smoothcostV=log(2)*L
   smoothcost = zeros(0) #array
 
-  fname1 = string("trained/basic12key_bsz",bsz,"_seqlen",seqlen,".jld")
-  fname2 = string("trained/basic12key_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
+  fname1 = string("trained/basic1depth_12key_bsz",bsz,"_seqlen",seqlen,".jld")
+  fname2 = string("trained/basic1depth_12key_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
-  #smoothcostV=smoothcost[end]
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(fname2)
+  smoothcostV=smoothcost[end]
 
   println("starting training.")
   #while smoothcostV > 0.01
@@ -62,12 +62,12 @@ function train(data,L,d,bsz,gridsize)
 
       # adjust encoders, grid and decoders
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.01)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.01)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.01)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.01)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.001)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.001)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
     end
 
     append!(smoothcost, smoothcostV)
@@ -85,10 +85,9 @@ function main()
   data = DATALOADER.TchaikovskyPeter()
 
   L = 256 #input/output units
-  #d = 256 #hidden units
-  d = 128
-  batchsize=8
-  gridsize = [24*4,1] # 24*2 would mean backprop 2 seconds (48 timesteps)
+  d = 256 #hidden units
+  batchsize=32
+  gridsize = [24*4+1,1] # 24*2 would mean backprop 2 seconds (48 timesteps)
   train(data, L, d, batchsize, gridsize)
 end
 

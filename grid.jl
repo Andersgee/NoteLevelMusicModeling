@@ -240,7 +240,7 @@ function linearindexing(G)
   return N, C, fn, bn
 end
 
-function sequencevars(L,bsz,gridsize,seqdim,seqlen)
+function sequencevars(L,bsz,gridsize,seqdim,seqlen,d)
   x = [zeros(L,bsz) for i=1:gridsize[seqdim]]
   z = [zeros(L,bsz) for i=1:gridsize[seqdim]]
   t = [zeros(L,bsz) for i=1:gridsize[seqdim]]
