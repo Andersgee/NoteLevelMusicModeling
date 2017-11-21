@@ -22,19 +22,23 @@ function train(data,L,d,bsz,gridsize)
   x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen,d)
 
   gradientstep=0
-  smoothAccuracy=0.5
-  smoothcost = zeros(0)
+  smooth=0.5
+  smooth2=0.5
+  smooth3=0.0
+  smoothvec = zeros(0)
+  smoothvec2 = zeros(0)
+  smoothvec3 = zeros(0)
 
   fname1 = string("trained/accuracy_basic",gridsize[2],"depth_12key_bsz",bsz,"_seqlen",seqlen,".jld")
   fname2 = string("trained/accuracy_basic",gridsize[2],"depth_12key_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(fname2)
-  #smoothAccuracy=smoothcost[end]
+  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec = CHECKPOINT.load_optimizevars(fname2)
+  #smooth=smoothvec[end]
 
   println("starting training.")
-  #while smoothAccuracy > 0.01
+  #while smooth > 0.01
   while true
     DATALOADER.get_batch!(batch, seqlen, bsz, data)
     GRID.reset_sequence!(gridsize, seqdim, projdim, mo, ho, fn)
@@ -49,9 +53,19 @@ function train(data,L,d,bsz,gridsize)
       GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
 
       # display info
-      Accuracy = sum((z[end].>0).==t[end])/(L*bsz)
-      smoothAccuracy = 0.999*smoothAccuracy + 0.001*Accuracy
-      println("gradientstep: ", gradientstep, " smoothaccuracy: ",round(smoothAccuracy,4))
+      truepositives = sum([sum(((z[i].>0) .== 1) .* (t[i] .== 1)) for i=1:gridsize[seqdim]])
+      falsenegatives= sum([sum(((z[i].>0) .== 0) .* (t[i] .== 1)) for i=1:gridsize[seqdim]])
+      truenegatives = sum([sum(((z[i].>0) .== 0) .* (t[i] .== 0)) for i=1:gridsize[seqdim]])
+      falsepositives= sum([sum(((z[i].>0) .== 1) .* (t[i] .== 0)) for i=1:gridsize[seqdim]])
+      
+      sensitivity = truepositives/(truepositives+falsenegatives)
+      specificity = truenegatives/(truenegatives+falsepositives)
+      informedness = sensitivity+specificity-1
+      #println("step: ",gradientstep,"sensitivity: ", round(sensitivity,4), " specificity: ", round(specificity,4), " informedness: ", round(informedness,4))
+      smooth = 0.99*smooth + 0.01*sensitivity
+      smooth2= 0.99*smooth2+ 0.01*specificity
+      smooth3= 0.99*smooth3+ 0.01*informedness
+      println("step: ",gradientstep," sensitivity: ", round(smooth,4), " specificity: ", round(smooth2,4), " informedness: ", round(smooth3,4))
 
       # bprop
       GRID.∇cost!(∇z, z, t)
@@ -61,17 +75,19 @@ function train(data,L,d,bsz,gridsize)
 
       # adjust encoders, grid and decoders
       gradientstep+=1
-      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep, 0.005)
-      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep, 0.005)
-      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep, 0.005)
-      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep, 0.005)
-      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep, 0.005)
-      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep, 0.005)
+      OPTIMIZER.optimize_Wencdec!(N, Wenc, Σ∇Wenc, mWenc, vWenc, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, benc, Σ∇benc, mbenc, vbenc, gradientstep)
+      OPTIMIZER.optimize_W!(N, W, Σ∇W, Wm, Wv, gradientstep)
+      OPTIMIZER.optimize_b!(N, b, Σ∇b, bm, bv, gradientstep)
+      OPTIMIZER.optimize_Wencdec!(N, Wdec, Σ∇Wdec, mWdec, vWdec, gradientstep)
+      OPTIMIZER.optimize_bencdec!(N, bdec, Σ∇bdec, mbdec, vbdec, gradientstep)
     end
 
-    append!(smoothcost, smoothAccuracy)
+    append!(smoothvec, smooth)
+    append!(smoothvec2,smooth2)
+    append!(smoothvec3,smooth3)
     CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
-    CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
+    CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
 
   end
 end
@@ -86,7 +102,8 @@ function main()
   L = 256 #input/output units
   d = 256 #hidden units
   batchsize=8
-  gridsize = [24*4+1,6] # 24*2 would mean backprop 2 seconds (48 timesteps)
+  #gridsize = [24*4+1,6] # 24*2 would mean backprop 2 seconds (48 timesteps)
+  gridsize = [24*2+1,1]
   train(data, L, d, batchsize, gridsize)
 end
 

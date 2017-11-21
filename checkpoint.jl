@@ -26,7 +26,7 @@ function load_model(path)
   return Wenc, benc, W, b, Wdec, bdec
 end
 
-function save_optimizevars(path, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost)
+function save_optimizevars(path, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
   JLD.save(path,
   "mWenc",mWenc,
   "vWenc",vWenc,
@@ -41,7 +41,9 @@ function save_optimizevars(path, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,v
   "mbdec",mbdec,
   "vbdec",vbdec,
   "gradientstep",gradientstep,
-  "smoothcost",smoothcost)
+  "smoothvec",smoothvec,
+  "smoothvec2",smoothvec2,
+  "smoothvec3",smoothvec3)
 
   println("saved ",path)
 end
@@ -61,10 +63,12 @@ function load_optimizevars(path)
   mbdec = d["mbdec"]
   vbdec = d["vbdec"]
   gradientstep = d["gradientstep"]
-  smoothcost = d["smoothcost"]
+  smoothvec = d["smoothvec"]
+  smoothvec2 = d["smoothvec2"]
+  smoothvec3 = d["smoothvec3"]
 
   println("loaded ",path)
-  return mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost
+  return mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec,smoothvec2,smoothvec3
 end
 
 end
