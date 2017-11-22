@@ -29,23 +29,25 @@ def convert(filename):
 	#mf.addTempo(0, 0, 24/4*60) # 24 16th notes per second (this is the tempo its supposed to be)
 	#mf.addTempo(0, 0, 24/4*60/2) # generally sound better at half speed...
 	#mf.addTempo(0, 0, 24/4*60/4) # or even a quarter spead.
-	mf.addTempo(0, 0, 24/4*60/C)
+	mf.addTempo(0, 0, 12/4*60/C)
 
 	defaultduration = 4 # in 16th notes (there are 24 per bar, which is 1 second)
-	maxduration = 2*24 # in 16th notes (2*24 means 2 seconds)
+	maxduration = 2*12 # in 16th notes (2*24 means 2 seconds)
 	#minvolume = 0.15 # [0...1]
-	minvolume = 0.5
+	minvolume = 0.15
 
 	for x in range(generated.shape[1]-maxduration):
 		for y in range(128):
 			if generated[y,x]>0:
 				duration = defaultduration
-				for n in range(1,maxduration):
-					if generated[y+128,x+n]>0:
-						duration=n
-						break
+				#for xp in range(12,maxduration):
+				for xp in range(1,maxduration):
+					for yp in range(128):
+						if generated[yp,x+xp]>0:
+							duration=xp
+							break
 				volume = max(minvolume, generated[y,x])
-				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*127)
+				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*100)
 
 	with open("generated_mid/"+filename+".mid", 'wb') as fn:
 		mf.writeFile(fn)

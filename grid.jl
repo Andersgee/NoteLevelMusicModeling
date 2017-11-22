@@ -320,6 +320,7 @@ function ∇cost!(∇z, z, t)
   #using y=z.>0  with
   #lets call the following the "binary ReLU gradient":
 
+  K=1/128
   #ϵ = 10e-8 #some tiny gradient if target is 1 and z is exactly 0 (can that even happen?)
   for i=1:length(z)
     #@. ∇z[i] = z[i] * ((t[i]==1)*(z[i]<0) + (t[i]==0)*(z[i]>0)) - (t[i]==1)*(z[i]==0)*ϵ
@@ -337,8 +338,8 @@ function ∇cost!(∇z, z, t)
     falsenegatives= (((z[i].>0) .== 0) .* (t[i] .== 1))
     falsepositives= (((z[i].>0) .== 1) .* (t[i] .== 0))
 
-    #@. ∇z[i] = z[i]*(127*falsenegatives+falsepositives)
-    @. ∇z[i] = 0.01*falsepositives-falsenegatives
+    #@. ∇z[i] = 0.01*falsepositives-falsenegatives
+    @. ∇z[i] = K*falsepositives-falsenegatives
 
   end
 end

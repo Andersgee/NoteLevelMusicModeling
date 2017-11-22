@@ -29,14 +29,17 @@ function train(data,L,d,bsz,gridsize)
   smoothvec2 = zeros(0)
   smoothvec3 = zeros(0)
 
-  fname1 = string("trained/accuracy_basic",gridsize[2],"depth_12key_bsz",bsz,"_seqlen",seqlen,".jld")
-  fname2 = string("trained/accuracy_basic",gridsize[2],"depth_12key_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
+  fname1 = string("trained/informed_",gridsize[1],"-",gridsize[2],"_bsz",bsz,"_seqlen",seqlen,".jld")
+  fname2 = string("trained/informed_",gridsize[1],"-",gridsize[2],"_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
   #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec = CHECKPOINT.load_optimizevars(fname2)
+  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec,smoothvec2,smoothvec3 = CHECKPOINT.load_optimizevars(fname2)
   #smooth=smoothvec[end]
+  #smooth2=smoothvec2[end]
+  #smooth3=smoothvec3[end]
 
+  save_every_x_batch = 0
   println("starting training.")
   #while smooth > 0.01
   while true
@@ -62,9 +65,9 @@ function train(data,L,d,bsz,gridsize)
       specificity = truenegatives/(truenegatives+falsepositives)
       informedness = sensitivity+specificity-1
       #println("step: ",gradientstep,"sensitivity: ", round(sensitivity,4), " specificity: ", round(specificity,4), " informedness: ", round(informedness,4))
-      smooth = 0.99*smooth + 0.01*sensitivity
-      smooth2= 0.99*smooth2+ 0.01*specificity
-      smooth3= 0.99*smooth3+ 0.01*informedness
+      smooth = 0.999*smooth + 0.001*sensitivity
+      smooth2= 0.999*smooth2+ 0.001*specificity
+      smooth3= 0.999*smooth3+ 0.001*informedness
       println("step: ",gradientstep," sensitivity: ", round(smooth,4), " specificity: ", round(smooth2,4), " informedness: ", round(smooth3,4))
 
       # bprop
@@ -86,8 +89,12 @@ function train(data,L,d,bsz,gridsize)
     append!(smoothvec, smooth)
     append!(smoothvec2,smooth2)
     append!(smoothvec3,smooth3)
-    CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
-    CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
+
+    save_every_x_batch += 1
+    if save_every_x_batch%10 == 0
+      CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
+      CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
+    end
 
   end
 end
@@ -98,12 +105,12 @@ function main()
   #data = DATALOADER.BachJohannSebastian()
   #data = DATALOADER.BeethovenLudwigvan()
   data = DATALOADER.TchaikovskyPeter()
+  println("SONGLENGTH: ",data[2][end,1])
 
-  L = 256 #input/output units
-  d = 256 #hidden units
+  L = 128 #input/output units
+  d = 64 #hidden units
   batchsize=8
-  #gridsize = [24*4+1,6] # 24*2 would mean backprop 2 seconds (48 timesteps)
-  gridsize = [24*2+1,1]
+  gridsize = [12*4,1]
   train(data, L, d, batchsize, gridsize)
 end
 

@@ -3,6 +3,16 @@ import numpy as np
 import argparse
 
 def convert(filename):
+	#This function creates an array that can be used to a construct manyhot matrix for training
+	#the created array A contains indexes of which elements to fill. for example:
+	# A[100,:] == [4002,60] means that a song, at timestep 4002, has notenumber 60 
+	# A[101,:] == [4040,60] means that a song, at timestep 4040, also has notenumber 60
+	#a song could have very many timesteps depending on how many notes per second C the midi file is parsed at
+	#but the size of A will be invariant to "notes per second" C.
+
+	#C=1000000/24 # 24 notes per second (means 480/24 = 20)
+	C=1000000/12 # 12 notes per second (means 480/12 = 40)
+
 	track = midi.read_midifile("mid/"+filename+".mid")[0]
 
 	# default values
@@ -25,16 +35,15 @@ def convert(filename):
 				note = event.data[0]
 				A=np.vstack((A,[AbsoluteMicroSeconds,note]))
 				# velocity = event.data[1]
-			else: #release note
-				note = event.data[0]+128
-				A=np.vstack((A,[AbsoluteMicroSeconds,note]))
-
-	C=1000000/24 # 24 notes per second (means 480/24 = 20)
-	A[:,0]=(A[:,0]+C/2)/C
-	A=A[1:,:] #remove first row
-	A=A+1 #one based indexing now
+			#else: #release note
+			#	note = event.data[0]+128
+			#	A=np.vstack((A,[AbsoluteMicroSeconds,note]))
 	
-	np.save("npynice/"+filename+".npy", A)
+	A[:,0]=(A[:,0]+C/2)/C #scale down and round ticks
+	A=A[1:,:] #remove first row
+	A=A+1 #one based indexing now instead
+	
+	np.save("npy/"+filename+".npy", A)
 
 
 if __name__ == '__main__':
