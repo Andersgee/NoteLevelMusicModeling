@@ -320,25 +320,20 @@ function ∇cost!(∇z, z, t)
   #using y=z.>0  with
   #lets call the following the "binary ReLU gradient":
 
-  K=1/128
-  #ϵ = 10e-8 #some tiny gradient if target is 1 and z is exactly 0 (can that even happen?)
+  #K=1/128
+  #K=1/16
+  K=1/2
+
   for i=1:length(z)
-    #@. ∇z[i] = z[i] * ((t[i]==1)*(z[i]<0) + (t[i]==0)*(z[i]>0)) - (t[i]==1)*(z[i]==0)*ϵ
-    #@. ∇z[i] = z * ((t==1)*(z<0) + (t==0)*(z>0))
+    #falsenegatives= (((z[i].>0) .== 0) .* (t[i] .== 1))
+    #falsepositives= (((z[i].>0) .== 1) .* (t[i] .== 0))
+    #@. ∇z[i] = K*falsepositives-falsenegatives
 
-    #gradient is exactly -1 when y==0 and t==1 (false negatives always important no matter how close)
-    #@. ∇z[i] = (-(t[i].==1).*(z[i].<0) .+ z[i].*(t[i].==0).*(z[i].>0))
+    noise = randn(size(z[i]))
 
+    falsenegatives= ((((z[i].+noise).>0) .== 0) .* (t[i] .== 1))
+    falsepositives= ((((z[i].+noise).>0) .== 1) .* (t[i] .== 0))
 
-    #no gradient on these:
-    #truepositives = (((z[i].>0) .== 1) .* (t[i] .== 1))
-    #truenegatives = (((z[i].>0) .== 0) .* (t[i] .== 0))
-
-    #gradient on these:
-    falsenegatives= (((z[i].>0) .== 0) .* (t[i] .== 1))
-    falsepositives= (((z[i].>0) .== 1) .* (t[i] .== 0))
-
-    #@. ∇z[i] = 0.01*falsepositives-falsenegatives
     @. ∇z[i] = K*falsepositives-falsenegatives
 
   end

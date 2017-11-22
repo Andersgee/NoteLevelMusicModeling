@@ -103,9 +103,12 @@ function main()
   #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
   
   #data = DATALOADER.BachJohannSebastian()
-  #data = DATALOADER.BeethovenLudwigvan()
-  data = DATALOADER.TchaikovskyPeter()
-  println("SONGLENGTH: ",data[2][end,1])
+
+  data = DATALOADER.BeethovenLudwigvan()
+  println("SONGLENGTH: ",data[3][end,1])
+  #data = DATALOADER.TchaikovskyPeter()
+  #println("SONGLENGTH: ",data[2][end,1])
+  
 
   L = 128 #input/output units
   d = 64 #hidden units

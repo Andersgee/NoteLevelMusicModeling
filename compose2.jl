@@ -24,7 +24,8 @@ function compose(data, L,d,bsz,gridsize)
   Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
 
   #what notes are in this song?
-  song=2 #august if tchaikovsky
+  #song=2 #august if tchaikovsky
+  song=3 # appass3 if Beethoven
   shift=0
   X=zeros(128,data[song][end,1]) # construct (entire) manyhot from data[songnumber]
   for n=1:size(data[song],1)
@@ -78,11 +79,17 @@ function compose(data, L,d,bsz,gridsize)
     end
     for batchstep=1:seqlen
       fill!(x[1], 0.0)
-      y = (z[1].>T).*noteprob
+
+      #y = (z[1].>T)
+      #y = (z[1].>T).*noteprob
       #y = (z[1].>T).*trainednotes
+
+      y = (z[1].>T).*z[1].*trainednotes
+      #y = (z[1].>T).*z[1].*noteprob
       for i=1:bsz
         if sum(y[:,i]) > 0
           notes = Distributions.wsample(1:L, y[:,i], K)
+          #notes=find(y[:,i])
           x[1][notes,i] .= y[notes,i].>0
           batch[i][notes,batchstep] .= y[notes,i].>0
         end
@@ -109,7 +116,8 @@ function compose(data, L,d,bsz,gridsize)
 end
 
 function main()
-  data = DATALOADER.TchaikovskyPeter()
+  data = DATALOADER.BeethovenLudwigvan()
+  #data = DATALOADER.TchaikovskyPeter()
   L = 128
   d = 64
   batchsize=4

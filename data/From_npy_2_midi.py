@@ -41,11 +41,10 @@ def convert(filename):
 			if generated[y,x]>0:
 				duration = defaultduration
 				#for xp in range(12,maxduration):
-				for xp in range(1,maxduration):
-					for yp in range(128):
-						if generated[yp,x+xp]>0:
-							duration=xp
-							break
+				for xp in range(2,maxduration):
+					if sum(generated[:,x+xp]) > 0:
+						duration=xp
+						break
 				volume = max(minvolume, generated[y,x])
 				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*100)
 

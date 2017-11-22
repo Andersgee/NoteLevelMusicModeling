@@ -10,8 +10,8 @@ function get_batch!(batch, seqlen, bsz, data)
 
 
     #song=rand(1:length(data)) # pick a random song
-    #song=3 # overfit a single song (appass3?)
-    song=2 #august if tchaikovsky
+    song=3 # overfit a single song (appass3?)
+    #song=2 #august if tchaikovsky
     #shift=rand(-6:5) # in one of 12 keys.
     shift=0
 
