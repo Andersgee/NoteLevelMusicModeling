@@ -3,17 +3,10 @@ module COMPOSE
 import NPZ
 import Distributions
 include("grid.jl")
+include("dataloader.jl")
 include("checkpoint.jl")
 
-function randTriad()
-  # Picks a Major or minor triad in either rootposition, first or second inversion.
-  lowest=48
-  pattern=[0 3 7; 0 4 7; 0 4 9; 0 3 8; 0 5 8; 0 5 9]
-  notes=collect(lowest:127)
-  return notes[rand(1:12) + pattern[rand(1:size(pattern,1)),:]]
-end
-
-function compose(L,d,bsz,gridsize)
+function compose(data, L,d,bsz,gridsize)
   # pre-allocate
   N, C, fn, bn = GRID.linearindexing(gridsize)
   Wenc, benc, Wdec, bdec = GRID.encodevars(L,d,N,bsz)
@@ -22,91 +15,107 @@ function compose(L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=1000
-  x, z, t, ∇z, batch = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen)
+  seqlen=12*4*15
+  x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen,d)
+  y=t
 
-  #filename1 = string("trained/trained_bsz64_seqlen500.jld")
-  #filename1 = string("trained/trained_bsz4_seqlen4000.jld")
-  #filename1 = "trained/trained_bsz32_seqlen1440.jld"
-  filename1="trained/basic_bsz8_seqlen1440.jld"
-  filename2="trained/basic_bsz8seqlen1440_opt.jld"
-  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(filename1)
-  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothcost = CHECKPOINT.load_optimizevars(filename2)
+  # load trained model
+  fname1 = "trained/informed_48-1_bsz8_seqlen1440.jld"
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
 
-  println("Composing ",bsz," songs in parallell")
+  a=[1,0,1,0,1,1,0,1,0,1,0,1]
+  a=[a;a;a;a;a;a;a;a;a;a;a;a]
+  key=rand(1:12)
+  #key=12
+  randkey = circshift(a[1:128],key)
 
+  println("Loading prime data.")
+  DATALOADER.get_batch!(batch, seqlen, bsz, data)
   for i=1:bsz
-    batch[i][randTriad(),1]=0.5
+    sumNoteOnEvents = sum(batch[i][1:128,:] .> 0)
+    println(i, " has on:",sumNoteOnEvents)
+    #filename=string("data/generated_npy/pgenerated",i,".npy")
+    #NPZ.npzwrite(filename, batch[i][:,end-24*10:end]) #10 last seconds of priming
   end
 
-  T=GRID.σ(-smoothcost[end]*2)
-  println("Threshold: ", T)
-  #T = 0.02
-  for iteration=1:200
+  println("Starting priming.")
+  for batchstep=1:seqlen-1
+    DATALOADER.get_partialbatch!(x,t,batch,gridsize,seqdim,batchstep,bsz)
+    GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
+    GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
+    GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+    GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
 
+    #truepositives = sum([sum(((z[i].>0) .== 1) .* (t[i] .== 1)) for i=1:gridsize[seqdim]])
+    #falsenegatives= sum([sum(((z[i].>0) .== 0) .* (t[i] .== 1)) for i=1:gridsize[seqdim]])
+    #truenegatives = sum([sum(((z[i].>0) .== 0) .* (t[i] .== 0)) for i=1:gridsize[seqdim]])
+    #falsepositives= sum([sum(((z[i].>0) .== 1) .* (t[i] .== 0)) for i=1:gridsize[seqdim]])
+    #sensitivity = truepositives/(truepositives+falsenegatives)
+    #specificity = truenegatives/(truenegatives+falsepositives)
+    #informedness = sensitivity+specificity-1
+    #println("sensitivity:", sensitivity, " specificity:",specificity)
+  end
+
+  println("Starting generating.")
+  T=0.0
+  for I=1:1
+    K=10
+    for i=1:bsz
+      fill!(batch[i],0.0)
+    end
     for batchstep=1:seqlen
+      fill!(x[1], 0.0)
+
+      
+      y = GRID.σ(z[1])
+
+      p = softmax(z[1], 1.5)
+      #p = softmax(z[1], 1.0)
+
+      #yt = (y.>0.5).*y.*randkey
+      yt = (y.>0.5).*y
       for i=1:bsz
-        x[1][:,i] .= batch[i][:,batchstep].>0
+        if sum(y[:,i]) > 0
+          notes = Distributions.wsample(1:L, p[:,i], K)
+          x[1][notes,i] .= yt[notes,i].>0
+          batch[i][notes,batchstep] .= yt[notes,i]
+        end
       end
 
+      #fprop
       GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
-      GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn,d)
-      GRID.grid!(C,N,fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
-      GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C)
-      output = GRID.σ(z[1])
-      #output=(output.>T).*output
-
-      #K=min(iteration,10)
-      K=iteration
-      for i=1:bsz
-        batch[i][:,batchstep+1] .*= 0.0
-        #notes=Distributions.wsample(1:L, output[:,i], i) #sample "i" notes mean 2 for song 2.. and 16 for song 16 etc
-        #notes=Distributions.wsample(1:L, output[:,i], iteration)
-        notes=Distributions.wsample(1:L, output[:,i], K)
-        #batch[i][notes,batchstep+1] .= output[notes,i]
-        batch[i][notes,batchstep+1] .= (output[notes,i].>T).*output[notes,i]
-      end
-
-      #println(batchstep)
-
+      GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
+      GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
+      GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
     end
 
-    #put last output as first again
+    println("Iteration ",I)
     for i=1:bsz
-      batch[i][:,1] .= batch[i][:,end]
+      sumNoteOnEvents = sum(batch[i] .> 0)
+      uniquenotes=sum(sum(batch[i],2).>0)
+      
+      filename=string("data/generated_npy/generated",i,".npy")
+      NPZ.npzwrite(filename, batch[i])
+      println("saved song ",i, " (has on:",sumNoteOnEvents, " unique:",uniquenotes,")")
     end
 
-    println("\nAfter iteration ",iteration,":")
-
-    #some info
-    for i=1:bsz
-      events=sum(batch[i][1:128,:].>0)
-      #events=sum(batch[i].>0)
-      #events=sum(batch[i][1:128,end-500:end].>0)
-      if events!=0
-        println("song ",i," has ",events, " events. (saving)")
-        filename=string("data/generated_npy/generated",i,".npy")
-        NPZ.npzwrite(filename, batch[i])
-      end
-    end
   end
-
-  println("\nsaving songs:")
-  for i=1:bsz
-    filename=string("data/generated_npy/generated",i,".npy")
-    NPZ.npzwrite(filename, batch[i])
-    println(filename)
-  end
-
+end
+function softmax(z,temp)
+    zm = maximum(z,1)
+    y = exp.((z.-zm)./temp)
+    p = y ./ sum(y,1)
+    return p
 end
 
 function main()
-  L = 256 #input/output units
-  d = 256 #hidden units
-  #batchsize=16
-  batchsize=8
+  data = DATALOADER.BeethovenLudwigvan()
+  #data = DATALOADER.TchaikovskyPeter()
+  L = 128
+  d = 128
+  batchsize=16
   gridsize = [1,1]
-  compose(L, d, batchsize, gridsize)
+  compose(data, L, d, batchsize, gridsize)
 end
 
 end

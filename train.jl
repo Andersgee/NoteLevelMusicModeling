@@ -101,17 +101,23 @@ end
 
 function main()
   #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
-  
   #data = DATALOADER.BachJohannSebastian()
-
   data = DATALOADER.BeethovenLudwigvan()
-  println("SONGLENGTH: ",data[3][end,1])
-  #data = DATALOADER.TchaikovskyPeter()
-  #println("SONGLENGTH: ",data[2][end,1])
+
+  lowerlimit = 30*12*4
+  lengths = [data[n][end,1] for n=1:length(data)]
+  keep = lengths.>lowerlimit
+  data = data[keep]
+  lengths = [data[n][end,1] for n=1:length(data)]
+  println("(removed ", sum(.!keep), " songs for having length ", lowerlimit," or shorter)")
+  println("number of songs: ", sum(keep))
+  println("average length: ", mean(lengths))
+  println("shortest: ", minimum(lengths))
+  println("longest: ", maximum(lengths))
   
 
   L = 128 #input/output units
-  d = 64 #hidden units
+  d = 256 #hidden units
   batchsize=8
   gridsize = [12*4,1]
   train(data, L, d, batchsize, gridsize)

@@ -4,13 +4,11 @@ import NPZ
 import Distributions
 
 function get_batch!(batch, seqlen, bsz, data)
-  #lengths = [data[n][end,1] for n=1:length(data)]
+  lengths = [data[n][end,1] for n=1:length(data)]
   for b=1:bsz
-    #song = Distributions.wsample(1:length(data), lengths, 1) # weighted pick. (long songs more often).
-
-
-    #song=rand(1:length(data)) # pick a random song
-    song=3 # overfit a single song (appass3?)
+    song = Distributions.wsample(1:length(data), lengths)
+    
+    #song=4 #
     #song=2 #august if tchaikovsky
     #shift=rand(-6:5) # in one of 12 keys.
     shift=0
@@ -21,6 +19,7 @@ function get_batch!(batch, seqlen, bsz, data)
     end
 
     s=rand(1:size(X,2)-seqlen) #random sequence within selected song
+    #s=1 #actually start from beginning always?
     batch[b]=X[:,s:s+seqlen] # (batch[b] length seqlen+1)
   end
 end
