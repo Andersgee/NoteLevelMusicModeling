@@ -60,7 +60,7 @@ function compose(data, L,d,bsz,gridsize)
   println("Starting generating.")
   T=0.0
   for I=1:1
-    K=100
+    K=10
     for i=1:bsz
       fill!(batch[i],0.0)
     end
@@ -72,17 +72,20 @@ function compose(data, L,d,bsz,gridsize)
       #K=100, temperature=4.0 seems to produce very memorized songs
       #println(std(z[1])) #seems to be about 12 - 13
       #temperature = 12.0
-      temperature = std(z[1])*0.9
-      p = softmax(z[1], temperature)
+
+      #temperature = std(z[1])*0.9
+      #p = softmax(z[1], temperature)
+
       y = GRID.σ(z[1])
       yt = (y.>0.5).*y
 
       #ypicked = (y .> (1+rand(size(y)))/2).*y #
       for i=1:bsz
-        #x[1][:,i] .= ypicked[:,i].>0
-        #batch[i][:,batchstep] .= ypicked[:,i]
+        temperature = std(z[1][:,i])*1.5
+        p = softmax(z[1][:,i], temperature)
+        notes = Distributions.wsample(1:L, p, K)        
 
-        notes = Distributions.wsample(1:L, p[:,i], K)
+        #notes = Distributions.wsample(1:L, p[:,i], K)
         x[1][notes,i] .= yt[notes,i].>0
         batch[i][notes,batchstep] .= yt[notes,i]
       end
