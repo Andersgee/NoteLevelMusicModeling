@@ -15,7 +15,8 @@ function compose(data, L,d,bsz,gridsize)
   # setup a sequence
   seqdim = 1
   projdim = 2
-  seqlen=12*4*15
+  seqlen=30*12*4
+  #seqlen=12*4*15
   x, z, t, ∇z, batch, himi,homo,∇himi,∇homo = GRID.sequencevars(L,bsz,gridsize,seqdim,seqlen,d)
   y=t
 
@@ -59,27 +60,31 @@ function compose(data, L,d,bsz,gridsize)
   println("Starting generating.")
   T=0.0
   for I=1:1
-    K=10
+    K=100
     for i=1:bsz
       fill!(batch[i],0.0)
     end
     for batchstep=1:seqlen
       fill!(x[1], 0.0)
 
-      
-      y = GRID.σ(z[1])
-
-      p = softmax(z[1], 1.5)
-      #p = softmax(z[1], 1.0)
-
       #yt = (y.>0.5).*y.*randkey
+
+      #K=100, temperature=4.0 seems to produce very memorized songs
+      #println(std(z[1])) #seems to be about 12 - 13
+      #temperature = 12.0
+      temperature = std(z[1])*0.9
+      p = softmax(z[1], temperature)
+      y = GRID.σ(z[1])
       yt = (y.>0.5).*y
+
+      #ypicked = (y .> (1+rand(size(y)))/2).*y #
       for i=1:bsz
-        if sum(y[:,i]) > 0
-          notes = Distributions.wsample(1:L, p[:,i], K)
-          x[1][notes,i] .= yt[notes,i].>0
-          batch[i][notes,batchstep] .= yt[notes,i]
-        end
+        #x[1][:,i] .= ypicked[:,i].>0
+        #batch[i][:,batchstep] .= ypicked[:,i]
+
+        notes = Distributions.wsample(1:L, p[:,i], K)
+        x[1][notes,i] .= yt[notes,i].>0
+        batch[i][notes,batchstep] .= yt[notes,i]
       end
 
       #fprop
@@ -109,10 +114,22 @@ function softmax(z,temp)
 end
 
 function main()
-  data = DATALOADER.BeethovenLudwigvan()
   #data = DATALOADER.TchaikovskyPeter()
+  data = DATALOADER.BeethovenLudwigvan()
+  lowerlimit = 30*12*4
+  lengths = [data[n][end,1] for n=1:length(data)]
+  keep = lengths.>lowerlimit
+  data = data[keep]
+  lengths = [data[n][end,1] for n=1:length(data)]
+  println("(removed ", sum(.!keep), " songs for having length ", lowerlimit," or shorter)")
+  println("number of songs: ", sum(keep))
+  println("average length: ", mean(lengths))
+  println("shortest: ", minimum(lengths))
+  println("longest: ", maximum(lengths))
+
+  
   L = 128
-  d = 128
+  d = 256
   batchsize=16
   gridsize = [1,1]
   compose(data, L, d, batchsize, gridsize)
