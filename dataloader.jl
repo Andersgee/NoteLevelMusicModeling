@@ -6,7 +6,7 @@ import Distributions
 function get_batch!(batch, seqlen, bsz, data)
   lengths = [data[n][end,1] for n=1:length(data)]
   for b=1:bsz
-    song = Distributions.wsample(1:length(data), lengths)
+    song = Distributions.wsample(1:length(data), lengths) 
     
     #song=4 #
     #song=2 #august if tchaikovsky

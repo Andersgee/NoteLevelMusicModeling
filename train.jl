@@ -33,11 +33,11 @@ function train(data,L,d,bsz,gridsize)
   fname2 = string("trained/informed_",gridsize[1],"-",gridsize[2],"_bsz",bsz,"_seqlen",seqlen,"_opt.jld")
 
   # uncomment to replace appropriate vars and continue interuppted training
-  #Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
-  #mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec,smoothvec2,smoothvec3 = CHECKPOINT.load_optimizevars(fname2)
-  #smooth=smoothvec[end]
-  #smooth2=smoothvec2[end]
-  #smooth3=smoothvec3[end]
+  Wenc, benc, W, b, Wdec, bdec = CHECKPOINT.load_model(fname1)
+  mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec,smoothvec2,smoothvec3 = CHECKPOINT.load_optimizevars(fname2)
+  smooth=smoothvec[end]
+  smooth2=smoothvec2[end]
+  smooth3=smoothvec3[end]
 
   save_every_x_batch = 0
   println("starting training.")
@@ -91,16 +91,21 @@ function train(data,L,d,bsz,gridsize)
     append!(smoothvec3,smooth3)
 
     save_every_x_batch += 1
+    #=
     if save_every_x_batch%10 == 0
       CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
       CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
     end
+    =#
+
+    CHECKPOINT.save_model(fname1, Wenc, benc, W, b, Wdec, bdec)
+    CHECKPOINT.save_optimizevars(fname2, mWenc,vWenc, mbenc,vbenc, Wm,Wv, bm,bv, mWdec,vWdec, mbdec,vbdec, gradientstep, smoothvec, smoothvec2, smoothvec3)
 
   end
 end
 
 function main()
-  #data = DATALOADER.load_dataset(24*2*60) # specify minimum song length (24*100 would mean 100 seconds)
+  #=
   #data = DATALOADER.BachJohannSebastian()
   data = DATALOADER.BeethovenLudwigvan()
 
@@ -114,12 +119,14 @@ function main()
   println("average length: ", mean(lengths))
   println("shortest: ", minimum(lengths))
   println("longest: ", maximum(lengths))
-  
+  =#
 
   L = 128 #input/output units
-  d = 256 #hidden units
+  d = 1024 #hidden units
   batchsize=8
   gridsize = [12*4,1]
+  data = DATALOADER.load_dataset(12*4*30) # specify minimum song length (24*100 would mean 100 seconds)
+
   train(data, L, d, batchsize, gridsize)
 end
 

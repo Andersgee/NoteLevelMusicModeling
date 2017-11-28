@@ -43,46 +43,16 @@ function compose(data, L,d,bsz,gridsize)
   mo_primed = deepcopy(mo)
   ho_primed = deepcopy(ho)
   z_primed = deepcopy(z)
+  batchcopy = deepcopy(batch)
   first_x = deepcopy(x)
-  fill!(first_x[1], 0.0)
+  for i=1:bsz
+    first_x[1][:,i] = batchcopy[i][:,end]
+  end
 
-  println("Generating foundation.")
-  K=100 #number of times to sample from probability
+
   for i=1:bsz
     fill!(batch[i],0.0) #clear batch before writing to it
   end
-  for batchstep=1:seqlen
-    fill!(x[1], 0.0)
-    y = GRID.σ(z[1])
-    yt = (y.>0.5).*y
-    for i=1:bsz
-      #temp = std(z[1][:,i])*0.9
-      temp = std(z[1][:,i])
-      #temp = std(z[1][:,i])/2
-      p = softmax(z[1][:,i], temp)
-      notes = Distributions.wsample(1:L, p, K)
-      if batchstep==1
-        first_x[1][notes,i] .= yt[notes,i].>0
-      end
-      x[1][notes,i] .= yt[notes,i].>0
-      batch[i][notes,batchstep] .= yt[notes,i]
-    end
-
-    #fprop
-    GRID.continue_sequence!(gridsize, seqdim, projdim, mi, hi, mo, ho, fn)
-    GRID.encode!(x, seqdim, projdim, Wenc, benc, mi, hi, fn, d, himi)
-    GRID.grid!(C,N,d, fn,WHib,W,b,g,mi,mo,hi,ho,Hi)
-    GRID.decode!(ho, mo, seqdim, projdim, Wdec, bdec, z, bn, C, d,homo)
-  end
-  for i=1:bsz
-    sumNoteOnEvents = sum(batch[i] .> 0)
-    uniquenotes=sum(sum(batch[i],2).>0)
-    
-    #filename=string("data/generated_npy/generated",i,".npy")
-    #NPZ.npzwrite(filename, batch[i])
-    println("saved song ",i, " (has on:",sumNoteOnEvents, " unique:",uniquenotes,")")
-  end
-
 
   println("Adding notes.")
   for I=1:1000
@@ -100,18 +70,15 @@ function compose(data, L,d,bsz,gridsize)
       yt = (y.>0.5).*y
       for i=1:bsz
 
-        #temp = std(z[1][:,i])
         temp = std(z[1][:,i])/3
         p = softmax(z[1][:,i], temp)
-        #println(maximum(p))
+        batch_potential[i][:,batchstep] .= p
 
         if batchstep==1
           x[1][:,i] .= first_x[1][:,i]
         else
           x[1][:,i] .= (batch[i][:,batchstep-1] .> 0)
-        end
-        #batch_potential[i][:,batchstep] .= yt[:,i]
-        batch_potential[i][:,batchstep] .= p
+        end       
       end
 
       #fprop
@@ -128,7 +95,7 @@ function compose(data, L,d,bsz,gridsize)
         noteval, idx = pickNote(batch_potential[i], noteval)
         if batch[i][idx]==0
           batch[i][idx] = noteval
-          println(i, "added ", noteval)
+          println(i, " added ", noteval)
           break
         end
       end
@@ -146,20 +113,15 @@ function compose(data, L,d,bsz,gridsize)
       y = GRID.σ(z[1])
       yt = (y.>0.5).*y
       for i=1:bsz
-
-        
-        #temp = std(z[1][:,i])
         temp = std(z[1][:,i])/3
         p = softmax(z[1][:,i], temp)
-        #println(maximum(p))
+        batch_potential[i][:,batchstep] .= p
 
         if batchstep==1
           x[1][:,i] .= first_x[1][:,i]
         else
           x[1][:,i] .= (batch[i][:,batchstep-1] .> 0)
         end
-        #batch_potential[i][:,batchstep] .= yt[:,i]
-        batch_potential[i][:,batchstep] .= p
       end
 
       #fprop
@@ -171,22 +133,15 @@ function compose(data, L,d,bsz,gridsize)
 
     
     for i=1:bsz
-      #remove any and all notes currently in batch that now has value <0.5 the distribution changes when adding new notes
-      #goodnotes = batch_potential[i].>0.5
-      #batch[i] = batch[i].*goodnotes
-
       noteval=1.0
       while true
         noteval, idx = pickNote_remove(batch_potential[i], batch[i], noteval)
-        if batch_potential[i][idx]<0.5
-          if batch[i][idx] != 0
-            batch[i][idx]=0
-            println(i," removed ", (1-noteval))
-            break
-          else
-            continue
-          end
+        if (batch_potential[i][idx]<0.5) && (batch[i][idx] != 0)
+          batch[i][idx]=0
+          println(i," removed ", (1-noteval))
+          break
         else
+          println(i," didnt remove anything")
           break
         end
       end
