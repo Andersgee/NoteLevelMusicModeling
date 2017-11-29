@@ -1,5 +1,4 @@
 *.npy
-*.mid
 *.pyc
 *.ipynb
 *.jld
