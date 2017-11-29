@@ -31,11 +31,13 @@ def convert(filename):
 	#mf.addTempo(0, 0, 24/4*60/4) # or even a quarter spead.
 	mf.addTempo(0, 0, 12/4*60/C)
 
-	defaultduration = 4 # in 16th notes (there are 24 per bar, which is 1 second)
+	#defaultduration = 4 # in 16th notes (there are 24 per bar, which is 1 second)
+	defaultduration = 8
+
 	#maxduration = 2*12 # in 16th notes (2*24 means 2 seconds)
 	maxduration = 2*12/C
 	#minvolume = 0.15 # [0...1]
-	minvolume = 0.15
+	minvolume = 0.35
 
 	for x in range(generated.shape[1]-maxduration):
 		for y in range(128):
@@ -46,8 +48,8 @@ def convert(filename):
 					if sum(generated[:,x+xp]) > 0:
 						duration=xp
 						break
-				#volume = max(minvolume, generated[y,x])
-				volume = max(minvolume, generated[y,x]*2-1)
+				volume = max(minvolume, generated[y,x])
+				#volume = max(minvolume, generated[y,x]*2-1)
 				mf.addNote(0, 0, y, x/4.0, duration/4.0, volume*100)
 
 	with open("generated_mid/"+filename+".mid", 'wb') as fn:
